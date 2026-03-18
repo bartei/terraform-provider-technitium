@@ -1,0 +1,437 @@
+// Copyright (c) 2026 Alex Ackerman
+// SPDX-License-Identifier: MPL-2.0
+
+package provider
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+)
+
+var (
+	_ resource.Resource                = &RecordResource{}
+	_ resource.ResourceWithImportState = &RecordResource{}
+)
+
+func NewRecordResource() resource.Resource {
+	return &RecordResource{}
+}
+
+type RecordResource struct {
+	client *client.Client
+}
+
+type RecordResourceModel struct {
+	ID       types.String `tfsdk:"id"`
+	Zone     types.String `tfsdk:"zone"`
+	Name     types.String `tfsdk:"name"`
+	Type     types.String `tfsdk:"type"`
+	TTL      types.Int64  `tfsdk:"ttl"`
+	Value    types.String `tfsdk:"value"`
+	Priority types.Int64  `tfsdk:"priority"`
+	Weight   types.Int64  `tfsdk:"weight"`
+	Port     types.Int64  `tfsdk:"port"`
+	Overwrite types.Bool  `tfsdk:"overwrite"`
+	// Computed
+	LastModified types.String `tfsdk:"last_modified"`
+}
+
+func (r *RecordResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_record"
+}
+
+func (r *RecordResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "Manages a DNS record in a Technitium DNS zone.",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Description: "Record identifier (zone/name/type composite key).",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"zone": schema.StringAttribute{
+				Description: "Parent zone name.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"name": schema.StringAttribute{
+				Description: "Fully qualified domain name for the record.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"type": schema.StringAttribute{
+				Description: "DNS record type: A, AAAA, CNAME, MX, TXT, SRV, PTR, NS, CAA.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"ttl": schema.Int64Attribute{
+				Description: "Time to live in seconds.",
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(3600),
+			},
+			"value": schema.StringAttribute{
+				Description: "Record data. For A/AAAA: IP address. For CNAME: target domain. For MX: exchange domain. For TXT: text data. For SRV: target. For PTR: domain name. For NS: nameserver. For CAA: value.",
+				Required:    true,
+			},
+			"priority": schema.Int64Attribute{
+				Description: "Priority for MX and SRV records.",
+				Optional:    true,
+			},
+			"weight": schema.Int64Attribute{
+				Description: "Weight for SRV records.",
+				Optional:    true,
+			},
+			"port": schema.Int64Attribute{
+				Description: "Port for SRV records.",
+				Optional:    true,
+			},
+			"overwrite": schema.BoolAttribute{
+				Description: "Replace existing record set for this type. Default: true.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
+			},
+			"last_modified": schema.StringAttribute{
+				Description: "Timestamp of last modification.",
+				Computed:    true,
+			},
+		},
+	}
+}
+
+func (r *RecordResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	providerData, ok := req.ProviderData.(*TechnitiumProviderData)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected *TechnitiumProviderData, got: %T", req.ProviderData))
+		return
+	}
+	r.client = providerData.Client
+}
+
+func (r *RecordResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan RecordResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	params := r.buildAddParams(&plan)
+	record, err := r.client.RecordAdd(
+		plan.Name.ValueString(),
+		plan.Zone.ValueString(),
+		plan.Type.ValueString(),
+		int(plan.TTL.ValueInt64()),
+		plan.Overwrite.ValueBool(),
+		params,
+	)
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating record", err.Error())
+		return
+	}
+
+	plan.ID = types.StringValue(fmt.Sprintf("%s/%s/%s",
+		plan.Zone.ValueString(), plan.Name.ValueString(), plan.Type.ValueString()))
+	plan.LastModified = types.StringValue(record.LastModified)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *RecordResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state RecordResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	records, err := r.client.RecordGet(state.Name.ValueString(), state.Zone.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading record", err.Error())
+		return
+	}
+
+	// Find matching record by type
+	found := false
+	recordType := state.Type.ValueString()
+	for _, rec := range records {
+		if rec.Type == recordType {
+			state.TTL = types.Int64Value(int64(rec.TTL))
+			state.Value = types.StringValue(client.RecordValueFromRData(recordType, rec.RData))
+			state.LastModified = types.StringValue(rec.LastModified)
+
+			// Extract MX/SRV-specific fields
+			if pref, ok := rec.RData["preference"]; ok {
+				state.Priority = types.Int64Value(int64(toFloat64(pref)))
+			}
+			if weight, ok := rec.RData["weight"]; ok {
+				state.Weight = types.Int64Value(int64(toFloat64(weight)))
+			}
+			if port, ok := rec.RData["port"]; ok {
+				state.Port = types.Int64Value(int64(toFloat64(port)))
+			}
+			if priority, ok := rec.RData["priority"]; ok {
+				state.Priority = types.Int64Value(int64(toFloat64(priority)))
+			}
+
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func (r *RecordResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan RecordResourceModel
+	var state RecordResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	params := r.buildUpdateParams(&state, &plan)
+	err := r.client.RecordUpdate(
+		plan.Name.ValueString(),
+		plan.Zone.ValueString(),
+		plan.Type.ValueString(),
+		int(plan.TTL.ValueInt64()),
+		params,
+	)
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating record", err.Error())
+		return
+	}
+
+	// Read back
+	records, err := r.client.RecordGet(plan.Name.ValueString(), plan.Zone.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading record after update", err.Error())
+		return
+	}
+	for _, rec := range records {
+		if rec.Type == plan.Type.ValueString() {
+			plan.LastModified = types.StringValue(rec.LastModified)
+			break
+		}
+	}
+
+	plan.ID = state.ID
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *RecordResource) Delete(_ context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state RecordResourceModel
+	resp.Diagnostics.Append(req.State.Get(context.Background(), &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	params := r.buildDeleteParams(&state)
+	err := r.client.RecordDelete(
+		state.Name.ValueString(),
+		state.Zone.ValueString(),
+		state.Type.ValueString(),
+		params,
+	)
+	if err != nil {
+		resp.Diagnostics.AddError("Error deleting record", err.Error())
+	}
+}
+
+func (r *RecordResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Import ID format: "zone/name/type"
+	parts := strings.SplitN(req.ID, "/", 3)
+	if len(parts) != 3 {
+		resp.Diagnostics.AddError("Invalid import ID",
+			"Import ID must be in format: zone/fqdn/type (e.g., example.com/www.example.com/A)")
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("zone"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), parts[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("type"), parts[2])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("overwrite"), true)...)
+}
+
+// buildAddParams creates type-specific API parameters for record creation.
+func (r *RecordResource) buildAddParams(model *RecordResourceModel) map[string]string {
+	params := map[string]string{}
+	recordType := model.Type.ValueString()
+	value := model.Value.ValueString()
+
+	params[client.RecordValueParam(recordType)] = value
+
+	// MX preference
+	if recordType == "MX" && !model.Priority.IsNull() {
+		params["preference"] = fmt.Sprintf("%d", model.Priority.ValueInt64())
+	}
+
+	// SRV fields
+	if recordType == "SRV" {
+		if !model.Priority.IsNull() {
+			params["priority"] = fmt.Sprintf("%d", model.Priority.ValueInt64())
+		}
+		if !model.Weight.IsNull() {
+			params["weight"] = fmt.Sprintf("%d", model.Weight.ValueInt64())
+		}
+		if !model.Port.IsNull() {
+			params["port"] = fmt.Sprintf("%d", model.Port.ValueInt64())
+		}
+	}
+
+	// CAA flags and tag
+	if recordType == "CAA" {
+		// For CAA, value is the actual value, and we need flags and tag
+		// The user sets these through the value field in a structured way
+		// or via separate fields if we extend later
+		params["flags"] = "0"
+		params["tag"] = "issue"
+	}
+
+	return params
+}
+
+// buildUpdateParams creates type-specific API parameters for record update.
+func (r *RecordResource) buildUpdateParams(state, plan *RecordResourceModel) map[string]string {
+	params := map[string]string{}
+	recordType := plan.Type.ValueString()
+	valueParam := client.RecordValueParam(recordType)
+
+	// Current value (required for API to identify the record)
+	oldValue := state.Value.ValueString()
+	newValue := plan.Value.ValueString()
+
+	switch recordType {
+	case "A", "AAAA":
+		params["ipAddress"] = oldValue
+		if oldValue != newValue {
+			params["newIpAddress"] = newValue
+		}
+	case "CNAME":
+		params["cname"] = newValue
+	case "MX":
+		params["exchange"] = oldValue
+		if oldValue != newValue {
+			params["newExchange"] = newValue
+		}
+		if !state.Priority.IsNull() {
+			params["preference"] = fmt.Sprintf("%d", state.Priority.ValueInt64())
+		}
+		if !plan.Priority.IsNull() {
+			params["newPreference"] = fmt.Sprintf("%d", plan.Priority.ValueInt64())
+		}
+	case "TXT":
+		params["text"] = oldValue
+		if oldValue != newValue {
+			params["newText"] = newValue
+		}
+	case "SRV":
+		params["target"] = oldValue
+		if oldValue != newValue {
+			params["newTarget"] = newValue
+		}
+		if !state.Priority.IsNull() {
+			params["priority"] = fmt.Sprintf("%d", state.Priority.ValueInt64())
+		}
+		if !plan.Priority.IsNull() {
+			params["newPriority"] = fmt.Sprintf("%d", plan.Priority.ValueInt64())
+		}
+		if !state.Weight.IsNull() {
+			params["weight"] = fmt.Sprintf("%d", state.Weight.ValueInt64())
+		}
+		if !plan.Weight.IsNull() {
+			params["newWeight"] = fmt.Sprintf("%d", plan.Weight.ValueInt64())
+		}
+		if !state.Port.IsNull() {
+			params["port"] = fmt.Sprintf("%d", state.Port.ValueInt64())
+		}
+		if !plan.Port.IsNull() {
+			params["newPort"] = fmt.Sprintf("%d", plan.Port.ValueInt64())
+		}
+	case "PTR":
+		params["ptrName"] = oldValue
+		if oldValue != newValue {
+			params["newPtrName"] = newValue
+		}
+	case "NS":
+		params["nameServer"] = oldValue
+		if oldValue != newValue {
+			params["newNameServer"] = newValue
+		}
+	default:
+		params[valueParam] = newValue
+	}
+
+	return params
+}
+
+// buildDeleteParams creates type-specific API parameters for record deletion.
+func (r *RecordResource) buildDeleteParams(model *RecordResourceModel) map[string]string {
+	params := map[string]string{}
+	recordType := model.Type.ValueString()
+	value := model.Value.ValueString()
+
+	params[client.RecordValueParam(recordType)] = value
+
+	if recordType == "MX" && !model.Priority.IsNull() {
+		params["preference"] = fmt.Sprintf("%d", model.Priority.ValueInt64())
+	}
+
+	if recordType == "SRV" {
+		if !model.Priority.IsNull() {
+			params["priority"] = fmt.Sprintf("%d", model.Priority.ValueInt64())
+		}
+		if !model.Weight.IsNull() {
+			params["weight"] = fmt.Sprintf("%d", model.Weight.ValueInt64())
+		}
+		if !model.Port.IsNull() {
+			params["port"] = fmt.Sprintf("%d", model.Port.ValueInt64())
+		}
+	}
+
+	return params
+}
+
+// toFloat64 safely converts an interface{} to float64 (JSON numbers are float64).
+func toFloat64(v interface{}) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	default:
+		return 0
+	}
+}
