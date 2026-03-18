@@ -1,0 +1,12 @@
+services:
+  technitium:
+    image: technitium/dns-server:latest
+    container_name: technitium-test
+    ports:
+      - "127.0.0.1:5380:5380"
+      - "127.0.0.1:15353:53/udp"
+      - "127.0.0.1:15353:53/tcp"
+    env_file:
+      - .env.test
+    tmpfs:
+      - /etc/dns/config
