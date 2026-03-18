@@ -137,6 +137,21 @@ func TestAccRecordResource_NS(t *testing.T) {
 	})
 }
 
+func TestAccRecordResource_PTR(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccRecordPTR(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("technitium_record.ptr", "type", "PTR"),
+					resource.TestCheckResourceAttr("technitium_record.ptr", "value", "web.rec-ptr-test.example.com"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccRecordResource_CAA(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -326,6 +341,28 @@ resource "technitium_record" "ns" {
   value = "ns2.%s"
 }
 `, testAccAPIToken(), zone, zone, zone)
+}
+
+func testAccRecordPTR() string {
+	return fmt.Sprintf(`
+provider "technitium" {
+  server_url = "http://127.0.0.1:5380"
+  api_token  = "%s"
+}
+
+resource "technitium_zone" "reverse" {
+  name = "2.0.192.in-addr.arpa"
+  type = "Primary"
+  dnssec { enabled = false }
+}
+
+resource "technitium_record" "ptr" {
+  zone  = technitium_zone.reverse.name
+  name  = "10.2.0.192.in-addr.arpa"
+  type  = "PTR"
+  value = "web.rec-ptr-test.example.com"
+}
+`, testAccAPIToken())
 }
 
 func testAccRecordCAA(zone string) string {
