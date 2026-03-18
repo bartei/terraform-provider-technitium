@@ -222,20 +222,18 @@ func (p *TechnitiumProvider) Configure(ctx context.Context, req provider.Configu
 
 func (p *TechnitiumProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		// TODO: Register resources as they are implemented
-		// Phase 1: NewZoneResource
-		// Phase 2: NewRecordResource
-		// Phase 3: NewServerSettingsResource
-		// Phase 4: NewTSIGKeyResource
+		NewZoneResource,
+		// TODO: Phase 2: NewRecordResource
+		// TODO: Phase 3: NewServerSettingsResource
+		// TODO: Phase 4: NewTSIGKeyResource
 	}
 }
 
 func (p *TechnitiumProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		// TODO: Register data sources as they are implemented
-		// Phase 1: NewZoneDataSource
-		// Phase 2: NewRecordDataSource
-		// Phase 3: NewServerSettingsDataSource
+		NewZoneDataSource,
+		// TODO: Phase 2: NewRecordDataSource
+		// TODO: Phase 3: NewServerSettingsDataSource
 	}
 }
 
