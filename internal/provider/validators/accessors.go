@@ -5,9 +5,8 @@ package validators
 
 import (
 	"context"
-	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/darkhonor/terraform-provider-technitium/internal/provider/tfpath"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -30,65 +29,8 @@ type StateAccessor interface {
 }
 
 // ---------------------------------------------------------------------------
-// MockAccessor — test double, no TF dependencies
-// ---------------------------------------------------------------------------
-
-// MockAccessor is a test double for ConfigAccessor/PlanAccessor/StateAccessor.
-type MockAccessor struct {
-	attrs map[string]interface{}
-}
-
-// NewMockAccessor constructs a MockAccessor pre-loaded with the given attrs.
-func NewMockAccessor(attrs map[string]interface{}) *MockAccessor {
-	return &MockAccessor{attrs: attrs}
-}
-
-func (m *MockAccessor) GetString(key string) (string, bool) {
-	v, ok := m.attrs[key]
-	if !ok {
-		return "", false
-	}
-	s, ok := v.(string)
-	return s, ok
-}
-
-func (m *MockAccessor) GetBool(key string) (bool, bool) {
-	v, ok := m.attrs[key]
-	if !ok {
-		return false, false
-	}
-	b, ok := v.(bool)
-	return b, ok
-}
-
-func (m *MockAccessor) GetStringList(key string) ([]string, bool) {
-	v, ok := m.attrs[key]
-	if !ok {
-		return nil, false
-	}
-	sl, ok := v.([]string)
-	return sl, ok
-}
-
-// Interface compliance assertions.
-var _ ConfigAccessor = &MockAccessor{}
-var _ PlanAccessor = &MockAccessor{}
-var _ StateAccessor = &MockAccessor{}
-
-// ---------------------------------------------------------------------------
 // TF Adapters — wrap tfsdk.Config / tfsdk.Plan / tfsdk.State
 // ---------------------------------------------------------------------------
-
-// parsePath converts a dot-separated string (e.g. "dnssec.enabled") into a
-// framework path.Path.
-func parsePath(dotPath string) path.Path {
-	parts := strings.Split(dotPath, ".")
-	p := path.Root(parts[0])
-	for _, part := range parts[1:] {
-		p = p.AtName(part)
-	}
-	return p
-}
 
 // ---------------------------------------------------------------------------
 // TFConfigAdapter
@@ -101,7 +43,7 @@ type TFConfigAdapter struct {
 
 func (a *TFConfigAdapter) GetString(dotPath string) (string, bool) {
 	var val types.String
-	diags := a.Config.GetAttribute(context.Background(), parsePath(dotPath), &val)
+	diags := a.Config.GetAttribute(context.Background(), tfpath.Parse(dotPath), &val)
 	if diags.HasError() || val.IsNull() || val.IsUnknown() {
 		return "", false
 	}
@@ -110,7 +52,7 @@ func (a *TFConfigAdapter) GetString(dotPath string) (string, bool) {
 
 func (a *TFConfigAdapter) GetBool(dotPath string) (bool, bool) {
 	var val types.Bool
-	diags := a.Config.GetAttribute(context.Background(), parsePath(dotPath), &val)
+	diags := a.Config.GetAttribute(context.Background(), tfpath.Parse(dotPath), &val)
 	if diags.HasError() || val.IsNull() || val.IsUnknown() {
 		return false, false
 	}
@@ -119,7 +61,7 @@ func (a *TFConfigAdapter) GetBool(dotPath string) (bool, bool) {
 
 func (a *TFConfigAdapter) GetStringList(dotPath string) ([]string, bool) {
 	var val types.List
-	diags := a.Config.GetAttribute(context.Background(), parsePath(dotPath), &val)
+	diags := a.Config.GetAttribute(context.Background(), tfpath.Parse(dotPath), &val)
 	if diags.HasError() || val.IsNull() || val.IsUnknown() {
 		return nil, false
 	}
@@ -143,7 +85,7 @@ type TFPlanAdapter struct {
 
 func (a *TFPlanAdapter) GetString(dotPath string) (string, bool) {
 	var val types.String
-	diags := a.Plan.GetAttribute(context.Background(), parsePath(dotPath), &val)
+	diags := a.Plan.GetAttribute(context.Background(), tfpath.Parse(dotPath), &val)
 	if diags.HasError() || val.IsNull() || val.IsUnknown() {
 		return "", false
 	}
@@ -152,7 +94,7 @@ func (a *TFPlanAdapter) GetString(dotPath string) (string, bool) {
 
 func (a *TFPlanAdapter) GetBool(dotPath string) (bool, bool) {
 	var val types.Bool
-	diags := a.Plan.GetAttribute(context.Background(), parsePath(dotPath), &val)
+	diags := a.Plan.GetAttribute(context.Background(), tfpath.Parse(dotPath), &val)
 	if diags.HasError() || val.IsNull() || val.IsUnknown() {
 		return false, false
 	}
@@ -161,7 +103,7 @@ func (a *TFPlanAdapter) GetBool(dotPath string) (bool, bool) {
 
 func (a *TFPlanAdapter) GetStringList(dotPath string) ([]string, bool) {
 	var val types.List
-	diags := a.Plan.GetAttribute(context.Background(), parsePath(dotPath), &val)
+	diags := a.Plan.GetAttribute(context.Background(), tfpath.Parse(dotPath), &val)
 	if diags.HasError() || val.IsNull() || val.IsUnknown() {
 		return nil, false
 	}
@@ -185,7 +127,7 @@ type TFStateAdapter struct {
 
 func (a *TFStateAdapter) GetString(dotPath string) (string, bool) {
 	var val types.String
-	diags := a.State.GetAttribute(context.Background(), parsePath(dotPath), &val)
+	diags := a.State.GetAttribute(context.Background(), tfpath.Parse(dotPath), &val)
 	if diags.HasError() || val.IsNull() || val.IsUnknown() {
 		return "", false
 	}
@@ -194,7 +136,7 @@ func (a *TFStateAdapter) GetString(dotPath string) (string, bool) {
 
 func (a *TFStateAdapter) GetBool(dotPath string) (bool, bool) {
 	var val types.Bool
-	diags := a.State.GetAttribute(context.Background(), parsePath(dotPath), &val)
+	diags := a.State.GetAttribute(context.Background(), tfpath.Parse(dotPath), &val)
 	if diags.HasError() || val.IsNull() || val.IsUnknown() {
 		return false, false
 	}
@@ -203,7 +145,7 @@ func (a *TFStateAdapter) GetBool(dotPath string) (bool, bool) {
 
 func (a *TFStateAdapter) GetStringList(dotPath string) ([]string, bool) {
 	var val types.List
-	diags := a.State.GetAttribute(context.Background(), parsePath(dotPath), &val)
+	diags := a.State.GetAttribute(context.Background(), tfpath.Parse(dotPath), &val)
 	if diags.HasError() || val.IsNull() || val.IsUnknown() {
 		return nil, false
 	}
