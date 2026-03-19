@@ -1,0 +1,40 @@
+---
+subcategory: ""
+page_title: "technitium_zone Data Source - Technitium DNS Server"
+description: |-
+  Reads a DNS zone from the Technitium DNS Server. Use this data source to
+  reference zone properties such as DNSSEC status, SOA serial, and zone
+  transfer policy in other resources or outputs.
+---
+
+# technitium\_zone (Data Source)
+
+Reads a DNS zone from the Technitium DNS Server. Use this data source to reference zone properties such as DNSSEC status, SOA serial, and zone transfer policy in other resources or outputs.
+
+## Example Usage
+
+{{tffile "examples/data-sources/technitium_zone/data-source.tf"}}
+
+## Argument Reference
+
+* `name` - (Required, String) The domain name of the zone to look up.
+
+## Attributes Reference
+
+* `id` - Zone identifier (same as `name`).
+
+* `type` - Zone type (e.g., `Primary`, `Secondary`, `Stub`, `Forwarder`).
+
+* `disabled` - Whether the zone is disabled.
+
+* `dnssec_status` - DNSSEC signing status as reported by the server (e.g., `Unsigned`, `Signed`).
+
+* `soa_serial` - Current SOA serial number.
+
+* `zone_transfer` - Zone transfer policy.
+
+* `zone_transfer_acl` - List of network addresses in the zone transfer ACL.
+
+* `notify` - Zone notify policy.
+
+* `notify_name_servers` - List of name server IP addresses that receive notify messages.

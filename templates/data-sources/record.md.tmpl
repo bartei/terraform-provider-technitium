@@ -1,0 +1,37 @@
+---
+subcategory: ""
+page_title: "technitium_record Data Source - Technitium DNS Server"
+description: |-
+  Reads DNS records from a Technitium DNS zone. Supports both single-record
+  and multi-record lookups filtered by zone, name, and record type.
+---
+
+# technitium\_record (Data Source)
+
+Reads DNS records from a Technitium DNS zone filtered by zone, name, and record type. Useful for referencing existing record values in other resources or for asserting expected DNS state in outputs.
+
+-> **Single vs. multiple records:** When exactly one record matches, `value` and `ttl` are populated directly. When multiple records match, use the `records` list attribute.
+
+## Example Usage
+
+{{tffile "examples/data-sources/technitium_record/data-source.tf"}}
+
+## Argument Reference
+
+* `zone` - (Required, String) Parent zone name.
+
+* `name` - (Required, String) Fully qualified domain name to query.
+
+* `type` - (Required, String) DNS record type to filter by (e.g., `A`, `AAAA`, `CNAME`, `MX`, `TXT`).
+
+## Attributes Reference
+
+* `id` - Record identifier, composed of `<zone>/<name>/<type>`.
+
+* `value` - Record value. Populated only when exactly one record matches.
+
+* `ttl` - Record TTL in seconds. Populated only when exactly one record matches.
+
+* `records` - List of all matching records. Each element contains:
+  * `value` - Record value.
+  * `ttl` - Record TTL in seconds.
