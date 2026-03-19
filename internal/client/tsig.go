@@ -37,9 +37,10 @@ func (c *Client) TSIGKeyGet(keyName string) (*TSIGKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, k := range keys {
+	for i, k := range keys {
 		if strings.EqualFold(k.KeyName, keyName) {
-			return &k, nil
+			key := keys[i]
+			return &key, nil
 		}
 	}
 	return nil, ErrTSIGKeyNotFound
@@ -60,8 +61,23 @@ func (c *Client) writeTSIGKeys(keys []TSIGKey) error {
 	return c.SettingsSet(map[string]string{"tsigKeys": value})
 }
 
+// validateTSIGKeyFields checks that no field contains the pipe delimiter
+// which would corrupt the wire format.
+func validateTSIGKeyFields(key TSIGKey) error {
+	for _, field := range []string{key.KeyName, key.SharedSecret, key.AlgorithmName} {
+		if strings.Contains(field, "|") {
+			return fmt.Errorf("TSIG key fields must not contain '|': %q", field)
+		}
+	}
+	return nil
+}
+
 // TSIGKeyCreate adds a new TSIG key. Returns error if key name already exists.
 func (c *Client) TSIGKeyCreate(key TSIGKey) error {
+	if err := validateTSIGKeyFields(key); err != nil {
+		return fmt.Errorf("creating TSIG key: %w", err)
+	}
+
 	keys, err := c.TSIGKeyList()
 	if err != nil {
 		return fmt.Errorf("creating TSIG key: %w", err)
@@ -83,6 +99,10 @@ func (c *Client) TSIGKeyCreate(key TSIGKey) error {
 
 // TSIGKeyUpdate replaces an existing TSIG key by name.
 func (c *Client) TSIGKeyUpdate(key TSIGKey) error {
+	if err := validateTSIGKeyFields(key); err != nil {
+		return fmt.Errorf("updating TSIG key: %w", err)
+	}
+
 	keys, err := c.TSIGKeyList()
 	if err != nil {
 		return fmt.Errorf("updating TSIG key: %w", err)
