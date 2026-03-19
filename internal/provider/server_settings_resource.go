@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -17,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -44,6 +46,13 @@ type ServerSettingsResourceModel struct {
 	LoggingType                 types.String `tfsdk:"logging_type"`
 	MaxLogFileDays              types.Int64  `tfsdk:"max_log_file_days"`
 	EnableBlocking              types.Bool   `tfsdk:"enable_blocking"`
+	AllowTxtBlockingReport       types.Bool   `tfsdk:"allow_txt_blocking_report"`
+	BlockingBypassList           types.List   `tfsdk:"blocking_bypass_list"`
+	BlockingType                 types.String `tfsdk:"blocking_type"`
+	BlockingAnswerTTL            types.Int64  `tfsdk:"blocking_answer_ttl"`
+	CustomBlockingAddresses      types.List   `tfsdk:"custom_blocking_addresses"`
+	BlockListUrls                types.List   `tfsdk:"block_list_urls"`
+	BlockListUpdateIntervalHours types.Int64  `tfsdk:"block_list_update_interval_hours"`
 	ServeStale                  types.Bool   `tfsdk:"serve_stale"`
 	Forwarders                  types.List   `tfsdk:"forwarders"`
 	ForwarderProtocol           types.String `tfsdk:"forwarder_protocol"`
@@ -126,6 +135,48 @@ func (r *ServerSettingsResource) Schema(_ context.Context, _ resource.SchemaRequ
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
+			},
+			"allow_txt_blocking_report": schema.BoolAttribute{
+				Description: "Allow TXT record blocking report queries.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
+			},
+			"blocking_bypass_list": schema.ListAttribute{
+				Description: "List of domains/networks that bypass blocking.",
+				Optional:    true,
+				ElementType: types.StringType,
+			},
+			"blocking_type": schema.StringAttribute{
+				Description: "Blocking response type. Valid: NxDomain, AnyAddress, TxtRecord, CustomAddress.",
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString(client.BlockingTypeNxDomain),
+				Validators: []validator.String{
+					stringvalidator.OneOf(client.ValidBlockingTypes...),
+				},
+			},
+			"blocking_answer_ttl": schema.Int64Attribute{
+				Description: "TTL in seconds for blocking responses.",
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(30),
+			},
+			"custom_blocking_addresses": schema.ListAttribute{
+				Description: "Custom IP addresses returned for blocked queries (used with CustomAddress blocking type).",
+				Optional:    true,
+				ElementType: types.StringType,
+			},
+			"block_list_urls": schema.ListAttribute{
+				Description: "URLs of block list feeds to subscribe to.",
+				Optional:    true,
+				ElementType: types.StringType,
+			},
+			"block_list_update_interval_hours": schema.Int64Attribute{
+				Description: "Hours between block list update checks.",
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(24),
 			},
 			"serve_stale": schema.BoolAttribute{
 				Description: "Serve stale records when upstream is unavailable.",
@@ -298,6 +349,13 @@ func (r *ServerSettingsResource) buildParams(ctx context.Context, model *ServerS
 	setString(params, "loggingType", model.LoggingType)
 	setInt(params, "maxLogFileDays", model.MaxLogFileDays)
 	setBool(params, "enableBlocking", model.EnableBlocking)
+	setBool(params, "allowTxtBlockingReport", model.AllowTxtBlockingReport)
+	setStringList(ctx, params, "blockingBypassList", model.BlockingBypassList)
+	setString(params, "blockingType", model.BlockingType)
+	setInt(params, "blockingAnswerTtl", model.BlockingAnswerTTL)
+	setStringList(ctx, params, "customBlockingAddresses", model.CustomBlockingAddresses)
+	setStringList(ctx, params, "blockListUrls", model.BlockListUrls)
+	setInt(params, "blockListUpdateIntervalHours", model.BlockListUpdateIntervalHours)
 	setBool(params, "serveStale", model.ServeStale)
 	setStringList(ctx, params, "forwarders", model.Forwarders)
 	setString(params, "forwarderProtocol", model.ForwarderProtocol)
@@ -330,6 +388,10 @@ func (r *ServerSettingsResource) readState(ctx context.Context, model *ServerSet
 	model.LoggingType = types.StringValue(settings.LoggingType)
 	model.MaxLogFileDays = types.Int64Value(int64(settings.MaxLogFileDays))
 	model.EnableBlocking = types.BoolValue(settings.EnableBlocking)
+	model.AllowTxtBlockingReport = types.BoolValue(settings.AllowTxtBlockingReport)
+	model.BlockingType = types.StringValue(settings.BlockingType)
+	model.BlockingAnswerTTL = types.Int64Value(int64(settings.BlockingAnswerTTL))
+	model.BlockListUpdateIntervalHours = types.Int64Value(int64(settings.BlockListUpdateIntervalHours))
 	model.ServeStale = types.BoolValue(settings.ServeStale)
 	// ForwarderProtocol: the API only persists this when forwarders are configured.
 	// If no forwarders, keep the planned value to avoid drift.
@@ -344,6 +406,9 @@ func (r *ServerSettingsResource) readState(ctx context.Context, model *ServerSet
 
 	// Lists
 	readStringList(ctx, &model.RecursionNetworkACL, settings.RecursionNetworkACL)
+	readStringList(ctx, &model.BlockingBypassList, settings.BlockingBypassList)
+	readStringList(ctx, &model.CustomBlockingAddresses, settings.CustomBlockingAddresses)
+	readStringList(ctx, &model.BlockListUrls, settings.BlockListUrls)
 	readStringList(ctx, &model.Forwarders, settings.Forwarders)
 	readStringList(ctx, &model.ZoneTransferAllowedNetworks, settings.ZoneTransferAllowedNetworks)
 	readStringList(ctx, &model.NotifyAllowedNetworks, settings.NotifyAllowedNetworks)

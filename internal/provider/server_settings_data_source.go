@@ -35,6 +35,13 @@ type ServerSettingsDataSourceModel struct {
 	LoggingType                 types.String `tfsdk:"logging_type"`
 	MaxLogFileDays              types.Int64  `tfsdk:"max_log_file_days"`
 	EnableBlocking              types.Bool   `tfsdk:"enable_blocking"`
+	AllowTxtBlockingReport       types.Bool   `tfsdk:"allow_txt_blocking_report"`
+	BlockingBypassList           types.List   `tfsdk:"blocking_bypass_list"`
+	BlockingType                 types.String `tfsdk:"blocking_type"`
+	BlockingAnswerTTL            types.Int64  `tfsdk:"blocking_answer_ttl"`
+	CustomBlockingAddresses      types.List   `tfsdk:"custom_blocking_addresses"`
+	BlockListUrls                types.List   `tfsdk:"block_list_urls"`
+	BlockListUpdateIntervalHours types.Int64  `tfsdk:"block_list_update_interval_hours"`
 	ServeStale                  types.Bool   `tfsdk:"serve_stale"`
 	ForwarderProtocol           types.String `tfsdk:"forwarder_protocol"`
 	EnableDnsOverTls            types.Bool   `tfsdk:"enable_dns_over_tls"`
@@ -62,7 +69,14 @@ func (d *ServerSettingsDataSource) Schema(_ context.Context, _ datasource.Schema
 			"log_queries":            schema.BoolAttribute{Computed: true, Description: "Query logging enabled."},
 			"logging_type":           schema.StringAttribute{Computed: true, Description: "Logging output type."},
 			"max_log_file_days":      schema.Int64Attribute{Computed: true, Description: "Max log retention days."},
-			"enable_blocking":        schema.BoolAttribute{Computed: true, Description: "DNS blocking enabled."},
+			"enable_blocking":                  schema.BoolAttribute{Computed: true, Description: "DNS blocking enabled."},
+			"allow_txt_blocking_report":        schema.BoolAttribute{Computed: true, Description: "TXT blocking report queries allowed."},
+			"blocking_bypass_list":             schema.ListAttribute{Computed: true, ElementType: types.StringType, Description: "Domains/networks that bypass blocking."},
+			"blocking_type":                    schema.StringAttribute{Computed: true, Description: "Blocking response type."},
+			"blocking_answer_ttl":              schema.Int64Attribute{Computed: true, Description: "TTL for blocking responses."},
+			"custom_blocking_addresses":        schema.ListAttribute{Computed: true, ElementType: types.StringType, Description: "Custom IPs returned for blocked queries."},
+			"block_list_urls":                  schema.ListAttribute{Computed: true, ElementType: types.StringType, Description: "Block list feed URLs."},
+			"block_list_update_interval_hours": schema.Int64Attribute{Computed: true, Description: "Hours between block list updates."},
 			"serve_stale":            schema.BoolAttribute{Computed: true, Description: "Serve stale records enabled."},
 			"forwarder_protocol":     schema.StringAttribute{Computed: true, Description: "Forwarder protocol."},
 			"enable_dns_over_tls":    schema.BoolAttribute{Computed: true, Description: "DNS-over-TLS enabled."},
@@ -87,7 +101,7 @@ func (d *ServerSettingsDataSource) Configure(_ context.Context, req datasource.C
 	d.client = providerData.Client
 }
 
-func (d *ServerSettingsDataSource) Read(_ context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (d *ServerSettingsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
 	settings, err := d.client.SettingsGet()
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading server settings", err.Error())
@@ -95,25 +109,34 @@ func (d *ServerSettingsDataSource) Read(_ context.Context, _ datasource.ReadRequ
 	}
 
 	state := ServerSettingsDataSourceModel{
-		ID:                    types.StringValue("server-settings"),
-		Version:               types.StringValue(settings.Version),
-		Uptime:                types.StringValue(settings.Uptimestamp),
-		DnssecValidation:      types.BoolValue(settings.DnssecValidation),
-		Recursion:             types.StringValue(settings.Recursion),
-		QnameMinimization:     types.BoolValue(settings.QnameMinimization),
-		RandomizeName:         types.BoolValue(settings.RandomizeName),
-		LogQueries:            types.BoolValue(settings.LogQueries),
-		LoggingType:           types.StringValue(settings.LoggingType),
-		MaxLogFileDays:        types.Int64Value(int64(settings.MaxLogFileDays)),
-		EnableBlocking:        types.BoolValue(settings.EnableBlocking),
-		ServeStale:            types.BoolValue(settings.ServeStale),
-		ForwarderProtocol:     types.StringValue(settings.ForwarderProtocol),
-		EnableDnsOverTls:      types.BoolValue(settings.EnableDnsOverTls),
-		EnableDnsOverHttps:    types.BoolValue(settings.EnableDnsOverHttps),
-		UdpPayloadSize:        types.Int64Value(int64(settings.UdpPayloadSize)),
-		CacheMinimumRecordTtl: types.Int64Value(int64(settings.CacheMinimumRecordTtl)),
-		CacheMaximumRecordTtl: types.Int64Value(int64(settings.CacheMaximumRecordTtl)),
+		ID:                           types.StringValue("server-settings"),
+		Version:                      types.StringValue(settings.Version),
+		Uptime:                       types.StringValue(settings.Uptimestamp),
+		DnssecValidation:             types.BoolValue(settings.DnssecValidation),
+		Recursion:                    types.StringValue(settings.Recursion),
+		QnameMinimization:            types.BoolValue(settings.QnameMinimization),
+		RandomizeName:                types.BoolValue(settings.RandomizeName),
+		LogQueries:                   types.BoolValue(settings.LogQueries),
+		LoggingType:                  types.StringValue(settings.LoggingType),
+		MaxLogFileDays:               types.Int64Value(int64(settings.MaxLogFileDays)),
+		EnableBlocking:               types.BoolValue(settings.EnableBlocking),
+		AllowTxtBlockingReport:       types.BoolValue(settings.AllowTxtBlockingReport),
+		BlockingType:                 types.StringValue(settings.BlockingType),
+		BlockingAnswerTTL:            types.Int64Value(int64(settings.BlockingAnswerTTL)),
+		BlockListUpdateIntervalHours: types.Int64Value(int64(settings.BlockListUpdateIntervalHours)),
+		ServeStale:                   types.BoolValue(settings.ServeStale),
+		ForwarderProtocol:            types.StringValue(settings.ForwarderProtocol),
+		EnableDnsOverTls:             types.BoolValue(settings.EnableDnsOverTls),
+		EnableDnsOverHttps:           types.BoolValue(settings.EnableDnsOverHttps),
+		UdpPayloadSize:               types.Int64Value(int64(settings.UdpPayloadSize)),
+		CacheMinimumRecordTtl:        types.Int64Value(int64(settings.CacheMinimumRecordTtl)),
+		CacheMaximumRecordTtl:        types.Int64Value(int64(settings.CacheMaximumRecordTtl)),
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(context.Background(), &state)...)
+	// Lists
+	readStringList(ctx, &state.BlockingBypassList, settings.BlockingBypassList)
+	readStringList(ctx, &state.CustomBlockingAddresses, settings.CustomBlockingAddresses)
+	readStringList(ctx, &state.BlockListUrls, settings.BlockListUrls)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

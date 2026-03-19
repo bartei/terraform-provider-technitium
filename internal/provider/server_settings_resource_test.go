@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -121,5 +122,88 @@ provider "technitium" {
 }
 
 data "technitium_server_settings" "current" {}
+`, testAccAPIToken())
+}
+
+func TestAccServerSettingsResource_BlockingConfig(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccServerSettingsBlocking(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("technitium_server_settings.main", "enable_blocking", "true"),
+					resource.TestCheckResourceAttr("technitium_server_settings.main", "allow_txt_blocking_report", "true"),
+					resource.TestCheckResourceAttr("technitium_server_settings.main", "blocking_type", "NxDomain"),
+					resource.TestCheckResourceAttr("technitium_server_settings.main", "blocking_answer_ttl", "30"),
+					resource.TestCheckResourceAttr("technitium_server_settings.main", "block_list_update_interval_hours", "24"),
+				),
+			},
+			{
+				Config: testAccServerSettingsBlockingUpdate(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("technitium_server_settings.main", "blocking_type", "CustomAddress"),
+					resource.TestCheckResourceAttr("technitium_server_settings.main", "blocking_answer_ttl", "60"),
+					resource.TestCheckResourceAttr("technitium_server_settings.main", "custom_blocking_addresses.#", "2"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccServerSettingsResource_BlockingTypeValidation(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccServerSettingsBlockingInvalidType(),
+				ExpectError: regexp.MustCompile(`(?i)blocking_type|value must be one of`),
+			},
+		},
+	})
+}
+
+func testAccServerSettingsBlocking() string {
+	return fmt.Sprintf(`
+provider "technitium" {
+  server_url = "http://127.0.0.1:5380"
+  api_token  = "%s"
+}
+resource "technitium_server_settings" "main" {
+  enable_blocking              = true
+  allow_txt_blocking_report    = true
+  blocking_type                = "NxDomain"
+  blocking_answer_ttl          = 30
+  block_list_update_interval_hours = 24
+}
+`, testAccAPIToken())
+}
+
+func testAccServerSettingsBlockingUpdate() string {
+	return fmt.Sprintf(`
+provider "technitium" {
+  server_url = "http://127.0.0.1:5380"
+  api_token  = "%s"
+}
+resource "technitium_server_settings" "main" {
+  enable_blocking              = true
+  allow_txt_blocking_report    = true
+  blocking_type                = "CustomAddress"
+  blocking_answer_ttl          = 60
+  custom_blocking_addresses    = ["0.0.0.0", "::"]
+  block_list_update_interval_hours = 24
+}
+`, testAccAPIToken())
+}
+
+func testAccServerSettingsBlockingInvalidType() string {
+	return fmt.Sprintf(`
+provider "technitium" {
+  server_url = "http://127.0.0.1:5380"
+  api_token  = "%s"
+}
+resource "technitium_server_settings" "main" {
+  blocking_type = "InvalidValue"
+}
 `, testAccAPIToken())
 }
