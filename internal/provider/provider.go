@@ -225,7 +225,7 @@ func (p *TechnitiumProvider) Resources(_ context.Context) []func() resource.Reso
 		NewZoneResource,
 		NewRecordResource,
 		NewServerSettingsResource,
-		// TODO: Phase 4: NewTSIGKeyResource
+		NewTSIGKeyResource,
 	}
 }
 
