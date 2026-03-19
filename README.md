@@ -18,10 +18,15 @@ use for every other piece of your infrastructure.
 
 What sets this provider apart is its embedded [DISA STIG](https://www.cyber.mil/stigs)
 compliance validation with full [NIST SP 800-53 Rev. 5](https://csrc.nist.gov/pubs/sp/800-53/r5/upd1/final)
-traceability. Twenty-eight DNS security requirements — derived from the BIND 9.x STIG V3R1
-(2025-07-14) and Windows Server 2022 DNS STIG V2R3 (2025-04-02) — are evaluated at
-`terraform validate` and `terraform plan` time, catching misconfigurations before they
-reach your DNS server.
+traceability. Twenty-eight DNS security requirements are evaluated at `terraform validate`
+and `terraform plan` time, catching misconfigurations before they reach your DNS server.
+
+**Supported STIGs:**
+
+| STIG | Version | Release Date |
+|---|---|---|
+| [BIND 9.x STIG](https://www.cyber.mil/stigs) | V3R1 | 2025-07-14 |
+| [Windows Server 2022 DNS STIG](https://www.cyber.mil/stigs) | V2R3 | 2025-04-02 |
 
 ## Features
 
@@ -34,7 +39,7 @@ reach your DNS server.
 - Built-in DISA STIG compliance validation (28 DNS security requirements)
 - [NIST SP 800-53 Rev. 5](https://csrc.nist.gov/pubs/sp/800-53/r5/upd1/final) control traceability and baseline categorization
 - NSS/[CNSSI 1253](https://www.cnss.gov/CNSS/issuances/Instructions.cfm) support for classified environments
-- Vault-style TLS configuration with environment variable support
+- TLS configuration with custom CA support and environment variable fallbacks
 - Client-side DNS record input validation
 
 ## Quick Start
@@ -76,17 +81,16 @@ export TECHNITIUM_SERVER_URL="https://dns.example.com"
 export TECHNITIUM_API_TOKEN="your-api-token"
 ```
 
-For TLS, the provider supports Vault-style configuration:
+For private or custom CA-issued certificates, the provider supports the following TLS options:
 
 ```hcl
 provider "technitium" {
-  server_url = "https://dns.example.com"
-  api_token  = var.technitium_api_token
+  server_url      = "https://dns.example.com"
+  api_token       = var.technitium_api_token
 
-  tls_ca_file     = "/etc/ssl/certs/ca.pem"
-  tls_client_cert = "/etc/ssl/certs/client.pem"
-  tls_client_key  = "/etc/ssl/private/client-key.pem"
-  skip_tls_verify = false
+  ca_cert_file    = "/etc/ssl/certs/internal-ca.pem"
+  tls_server_name = "dns.example.com"
+  tls_min_version = "1.3"
 }
 ```
 
