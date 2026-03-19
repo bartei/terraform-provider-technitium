@@ -143,3 +143,6 @@ docs/data-sources/
 # Design specs (local only)
 docs/superpowers/
 docs/specs/
+
+# Git worktrees
+.worktrees/
