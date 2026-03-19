@@ -36,7 +36,10 @@ testacc-down:
 
 generate:
 	go generate ./...
-	go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate
+	go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@v0.24.0 generate
+
+docs:
+	go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@v0.24.0 generate
 
 lint:
 	golangci-lint run ./...
@@ -49,4 +52,4 @@ generate-stig:
 	go run ./tools/generate_stig_baselines.go
 	@echo "Generated internal/provider/validators/stig_baselines_gen.go"
 
-.PHONY: build build-fips test test-fips testacc testacc-token testacc-up testacc-down generate lint install generate-stig
+.PHONY: build build-fips test test-fips testacc testacc-token testacc-up testacc-down generate docs lint install generate-stig
