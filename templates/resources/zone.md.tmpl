@@ -1,0 +1,84 @@
+---
+subcategory: ""
+page_title: "technitium_zone Resource - Technitium DNS Server"
+description: |-
+  Manages a DNS zone on the Technitium DNS Server. Supports Primary, Secondary, Stub,
+  and Forwarder zone types with optional DNSSEC signing and TSIG-authenticated zone
+  transfers.
+---
+
+# technitium\_zone (Resource)
+
+Manages a DNS zone on the Technitium DNS Server. Supports Primary, Secondary, Stub, and Forwarder zone types with optional DNSSEC signing and TSIG-authenticated zone transfers.
+
+~> **DoD / IC environments:** This resource enforces multiple STIG controls when `stig_compliance` is enabled on the provider. Relevant controls include **DNS-REQ-001** (DNSSEC signing), **DNS-REQ-002** (TSIG-authenticated zone transfers), **DNS-REQ-004** (zone transfer ACL), **DNS-REQ-011** (NSEC3 proof of non-existence), **DNS-REQ-012** (FIPS-approved cryptographic algorithms), and **DNS-REQ-016** (notify configuration). See the [STIG Compliance Guide](../guides/stig-compliance.md) for a full walkthrough.
+
+## Example Usage
+
+### Basic Primary Zone
+
+{{tffile "examples/resources/technitium_zone/resource.tf"}}
+
+### Secondary Zone with TSIG Authentication
+
+{{codefile "hcl" "examples/resources/technitium_zone/secondary-with-tsig.tf"}}
+
+### DNSSEC-Enabled Zone
+
+{{codefile "hcl" "examples/resources/technitium_zone/dnssec-enabled.tf"}}
+
+### NSS-Compliant Zone
+
+{{codefile "hcl" "examples/resources/technitium_zone/nss-compliant.tf"}}
+
+## Argument Reference
+
+* `name` - (Required, String) Domain name for the zone. (Forces replacement.)
+
+* `type` - (Required, String) Zone type. Valid values: `Primary`, `Secondary`, `Stub`, `Forwarder`. (Forces replacement.)
+
+* `soa_serial_date_scheme` - (Optional, Boolean) Use date-based SOA serial numbering. Default: `true`.
+
+* `notify` - (Optional, List of String) IP addresses to notify on zone changes.
+
+* `allow_transfer` - (Optional, List of String) IP addresses allowed to perform zone transfers.
+
+* `zone_transfer_tsig_key_names` - (Optional, List of String) TSIG key names authorized to perform zone transfers. Only valid for `Primary`, `Secondary`, `Forwarder`, and `Catalog` zones.
+
+* `primary_zone_transfer_tsig_key_name` - (Optional, String) TSIG key name for authenticating zone transfers from the primary server. Only valid for `Secondary`, `SecondaryForwarder`, and `SecondaryCatalog` zones.
+
+* `dnssec` - (Optional, Block) DNSSEC signing configuration. See [dnssec](#dnssec) below.
+
+### dnssec
+
+The `dnssec` block supports the following arguments:
+
+* `enabled` - (Optional, Boolean) Enable DNSSEC signing for the zone. Default: `true`.
+
+* `algorithm` - (Optional, String) DNSSEC signing algorithm. Valid values: `ECDSA`, `EDDSA`, `RSA`. Default: `"ECDSA"`.
+
+* `curve` - (Optional, String) Elliptic curve for `ECDSA` (`P256`, `P384`) or `EDDSA` (`ED25519`, `ED448`). Default: `"P256"`.
+
+  -> **NSS environments:** When `nss = true` on the provider, `ECDSA` with `P256` is rejected. Use `P384` to comply with CNSSI 1253.
+
+* `nx_proof` - (Optional, String) Proof of non-existence mechanism. Valid values: `NSEC`, `NSEC3`. Default: `"NSEC3"`.
+
+## Attributes Reference
+
+In addition to the arguments above, the following computed attributes are exported:
+
+* `id` - Zone identifier (same as `name`).
+
+* `soa_serial` - Current SOA serial number.
+
+* `status` - Zone status. Value is `enabled` or `disabled`.
+
+* `dnssec_status` - DNSSEC signing status as reported by the server (e.g., `Unsigned`, `Signed`).
+
+## Import
+
+DNS zones can be imported using the zone name.
+
+```shell
+terraform import technitium_zone.example example.com
+```
