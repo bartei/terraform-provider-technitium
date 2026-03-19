@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/darkhonor/terraform-provider-technitium/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -23,8 +24,10 @@ import (
 )
 
 var (
-	_ resource.Resource                = &ServerSettingsResource{}
-	_ resource.ResourceWithImportState = &ServerSettingsResource{}
+	_ resource.Resource                     = &ServerSettingsResource{}
+	_ resource.ResourceWithImportState      = &ServerSettingsResource{}
+	_ resource.ResourceWithModifyPlan       = &ServerSettingsResource{}
+	_ resource.ResourceWithConfigValidators = &ServerSettingsResource{}
 )
 
 func NewServerSettingsResource() resource.Resource {
@@ -32,7 +35,8 @@ func NewServerSettingsResource() resource.Resource {
 }
 
 type ServerSettingsResource struct {
-	client *client.Client
+	client       *client.Client
+	providerData *TechnitiumProviderData
 }
 
 type ServerSettingsResourceModel struct {
@@ -258,7 +262,32 @@ func (r *ServerSettingsResource) Configure(_ context.Context, req resource.Confi
 			fmt.Sprintf("Expected *TechnitiumProviderData, got: %T", req.ProviderData))
 		return
 	}
+	r.providerData = providerData
 	r.client = providerData.Client
+}
+
+func (r *ServerSettingsResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() {
+		return // destroy plan
+	}
+	if r.providerData != nil && r.providerData.STIGEngine != nil {
+		r.providerData.STIGEngine.ValidatePlan(
+			ctx,
+			validators.ResourceServerSettings,
+			&validators.TFPlanAdapter{Plan: req.Plan},
+			&validators.TFStateAdapter{State: req.State},
+			&resp.Diagnostics,
+		)
+	}
+}
+
+func (r *ServerSettingsResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+	if r.providerData == nil || r.providerData.STIGEngine == nil {
+		return nil
+	}
+	return []resource.ConfigValidator{
+		newSTIGConfigValidator(r.providerData.STIGEngine, validators.ResourceServerSettings),
+	}
 }
 
 func (r *ServerSettingsResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

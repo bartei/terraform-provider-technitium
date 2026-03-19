@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/darkhonor/terraform-provider-technitium/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -19,9 +20,10 @@ import (
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ resource.Resource                = &TSIGKeyResource{}
-	_ resource.ResourceWithImportState = &TSIGKeyResource{}
-	_ resource.ResourceWithModifyPlan  = &TSIGKeyResource{}
+	_ resource.Resource                     = &TSIGKeyResource{}
+	_ resource.ResourceWithImportState      = &TSIGKeyResource{}
+	_ resource.ResourceWithModifyPlan       = &TSIGKeyResource{}
+	_ resource.ResourceWithConfigValidators = &TSIGKeyResource{}
 )
 
 // validTSIGAlgorithms lists all TSIG algorithms supported by Technitium.
@@ -129,6 +131,26 @@ func (r *TSIGKeyResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 			resp.Diagnostics.AddError("TSIG algorithm not allowed in NSS mode",
 				fmt.Sprintf("Algorithm %q does not meet FIPS 140-3/CNSSI 1253 requirements. Use hmac-sha256, hmac-sha384, or hmac-sha512.", algo))
 		}
+	}
+
+	// STIG compliance validation
+	if r.providerData != nil && r.providerData.STIGEngine != nil {
+		r.providerData.STIGEngine.ValidatePlan(
+			ctx,
+			validators.ResourceTSIGKey,
+			&validators.TFPlanAdapter{Plan: req.Plan},
+			&validators.TFStateAdapter{State: req.State},
+			&resp.Diagnostics,
+		)
+	}
+}
+
+func (r *TSIGKeyResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+	if r.providerData == nil || r.providerData.STIGEngine == nil {
+		return nil
+	}
+	return []resource.ConfigValidator{
+		newSTIGConfigValidator(r.providerData.STIGEngine, validators.ResourceTSIGKey),
 	}
 }
 

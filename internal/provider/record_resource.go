@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/darkhonor/terraform-provider-technitium/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -20,8 +21,10 @@ import (
 )
 
 var (
-	_ resource.Resource                = &RecordResource{}
-	_ resource.ResourceWithImportState = &RecordResource{}
+	_ resource.Resource                     = &RecordResource{}
+	_ resource.ResourceWithImportState      = &RecordResource{}
+	_ resource.ResourceWithModifyPlan       = &RecordResource{}
+	_ resource.ResourceWithConfigValidators = &RecordResource{}
 )
 
 func NewRecordResource() resource.Resource {
@@ -29,7 +32,8 @@ func NewRecordResource() resource.Resource {
 }
 
 type RecordResource struct {
-	client *client.Client
+	client       *client.Client
+	providerData *TechnitiumProviderData
 }
 
 type RecordResourceModel struct {
@@ -139,7 +143,32 @@ func (r *RecordResource) Configure(_ context.Context, req resource.ConfigureRequ
 			fmt.Sprintf("Expected *TechnitiumProviderData, got: %T", req.ProviderData))
 		return
 	}
+	r.providerData = providerData
 	r.client = providerData.Client
+}
+
+func (r *RecordResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() {
+		return // destroy plan
+	}
+	if r.providerData != nil && r.providerData.STIGEngine != nil {
+		r.providerData.STIGEngine.ValidatePlan(
+			ctx,
+			validators.ResourceRecord,
+			&validators.TFPlanAdapter{Plan: req.Plan},
+			&validators.TFStateAdapter{State: req.State},
+			&resp.Diagnostics,
+		)
+	}
+}
+
+func (r *RecordResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+	if r.providerData == nil || r.providerData.STIGEngine == nil {
+		return nil
+	}
+	return []resource.ConfigValidator{
+		newSTIGConfigValidator(r.providerData.STIGEngine, validators.ResourceRecord),
+	}
 }
 
 func (r *RecordResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

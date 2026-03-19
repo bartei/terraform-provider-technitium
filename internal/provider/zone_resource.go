@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/darkhonor/terraform-provider-technitium/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -23,9 +24,10 @@ import (
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ resource.Resource                   = &ZoneResource{}
-	_ resource.ResourceWithImportState    = &ZoneResource{}
-	_ resource.ResourceWithModifyPlan     = &ZoneResource{}
+	_ resource.Resource                     = &ZoneResource{}
+	_ resource.ResourceWithImportState      = &ZoneResource{}
+	_ resource.ResourceWithModifyPlan       = &ZoneResource{}
+	_ resource.ResourceWithConfigValidators = &ZoneResource{}
 )
 
 func NewZoneResource() resource.Resource {
@@ -237,6 +239,25 @@ func (r *ZoneResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 		}
 	}
 
+	// STIG compliance validation
+	if r.providerData != nil && r.providerData.STIGEngine != nil {
+		r.providerData.STIGEngine.ValidatePlan(
+			ctx,
+			validators.ResourceZone,
+			&validators.TFPlanAdapter{Plan: req.Plan},
+			&validators.TFStateAdapter{State: req.State},
+			&resp.Diagnostics,
+		)
+	}
+}
+
+func (r *ZoneResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+	if r.providerData == nil || r.providerData.STIGEngine == nil {
+		return nil
+	}
+	return []resource.ConfigValidator{
+		newSTIGConfigValidator(r.providerData.STIGEngine, validators.ResourceZone),
+	}
 }
 
 func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
