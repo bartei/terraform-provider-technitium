@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 
 	"github.com/darkhonor/terraform-provider-technitium/internal/provider"
@@ -19,9 +20,16 @@ var (
 
 func main() {
 	var debug bool
+	var showVersion bool
 
 	flag.BoolVar(&debug, "debug", false, "set to true to run the provider with support for debuggers like delve")
+	flag.BoolVar(&showVersion, "version", false, "print version information and exit")
 	flag.Parse()
+
+	if showVersion {
+		fmt.Printf("terraform-provider-technitium %s (commit: %s)\n", version, commit)
+		return
+	}
 
 	opts := providerserver.ServeOpts{
 		Address: "registry.terraform.io/darkhonor/technitium",

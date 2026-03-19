@@ -79,10 +79,12 @@ func TestDoGet_Success(t *testing.T) {
 		if r.URL.Query().Get("token") != "test-token" {
 			t.Error("token not passed in query params")
 		}
-		json.NewEncoder(w).Encode(APIResponse{
+		if err := json.NewEncoder(w).Encode(APIResponse{
 			Status:   "ok",
 			Response: json.RawMessage(`{"zones":[]}`),
-		})
+		}); err != nil {
+			t.Fatalf("failed to encode response: %v", err)
+		}
 	})
 	defer ts.Close()
 
@@ -98,10 +100,12 @@ func TestDoGet_Success(t *testing.T) {
 
 func TestDoGet_APIError(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(APIResponse{
+		if err := json.NewEncoder(w).Encode(APIResponse{
 			Status:       "error",
 			ErrorMessage: "zone not found",
-		})
+		}); err != nil {
+			t.Fatalf("failed to encode response: %v", err)
+		}
 	})
 	defer ts.Close()
 
@@ -121,10 +125,12 @@ func TestDoGet_APIError(t *testing.T) {
 
 func TestDoGet_InvalidToken(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(APIResponse{
+		if err := json.NewEncoder(w).Encode(APIResponse{
 			Status:       "invalid-token",
 			ErrorMessage: "The session has expired. Please login again.",
-		})
+		}); err != nil {
+			t.Fatalf("failed to encode response: %v", err)
+		}
 	})
 	defer ts.Close()
 
@@ -145,7 +151,9 @@ func TestDoGet_InvalidToken(t *testing.T) {
 func TestDoGet_HTTPError(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error"))
+		if _, err := w.Write([]byte("internal server error")); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	})
 	defer ts.Close()
 
@@ -158,7 +166,9 @@ func TestDoGet_HTTPError(t *testing.T) {
 
 func TestDoGet_InvalidJSON(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("not json"))
+		if _, err := w.Write([]byte("not json")); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	})
 	defer ts.Close()
 
@@ -305,7 +315,9 @@ func TestNewClient_CACertFile_InvalidPEM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString("this is not valid PEM data")
+	if _, err := f.WriteString("this is not valid PEM data"); err != nil {
+		t.Fatal(err)
+	}
 	f.Close()
 
 	_, err = NewClient(ClientConfig{
@@ -405,7 +417,9 @@ func TestNewClient_CACertFileAndDir_Combined(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Write(certPEM1)
+	if _, err := f.Write(certPEM1); err != nil {
+		t.Fatal(err)
+	}
 	f.Close()
 
 	if err := os.WriteFile(filepath.Join(dir, "ca2.pem"), certPEM2, 0600); err != nil {

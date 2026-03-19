@@ -48,27 +48,6 @@ provider "technitium" {
 `, testAccAPIToken(), enforcement, suppressStr, baseline)
 }
 
-// testAccSTIGProviderConfigCIA generates provider config with per-objective categorization.
-func testAccSTIGProviderConfigCIA(enforcement string, c, i, a string) string {
-	return fmt.Sprintf(`
-provider "technitium" {
-  server_url = "http://127.0.0.1:5380"
-  api_token  = "%s"
-
-  stig_compliance {
-    enabled     = true
-    enforcement = "%s"
-
-    categorization {
-      confidentiality = "%s"
-      integrity       = "%s"
-      availability    = "%s"
-    }
-  }
-}
-`, testAccAPIToken(), enforcement, c, i, a)
-}
-
 // ---------------------------------------------------------------------------
 // Zone tests
 // ---------------------------------------------------------------------------
