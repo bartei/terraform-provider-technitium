@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"testing"
 
@@ -262,6 +263,12 @@ data "technitium_zone" "test" {
 }
 
 func testAccAPIToken() string {
-	// This token is for the local Docker test instance only
-	return "7b34e85a6f9bdf8dacf8513024463408c51980663e47c1cd522f2f9071686388"
+	// Read from environment — token is provisioned when the Docker test instance starts.
+	// Set via .env.test or TECHNITIUM_API_TOKEN env var.
+	token := os.Getenv("TECHNITIUM_API_TOKEN")
+	if token == "" {
+		// Fallback for CI or manual runs
+		token = "7b34e85a6f9bdf8dacf8513024463408c51980663e47c1cd522f2f9071686388"
+	}
+	return token
 }

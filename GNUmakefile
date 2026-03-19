@@ -13,6 +13,7 @@ test-fips:
 	GOEXPERIMENT=boringcrypto go test -v ./... -count=1
 
 testacc:
+	@test -f .env.test && export $$(grep -v '^#' .env.test | xargs) || true; \
 	TF_ACC=1 go test -v ./... -count=1 -timeout 120m
 
 testacc-up:

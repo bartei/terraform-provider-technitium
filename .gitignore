@@ -107,6 +107,9 @@ terraform-provider-technitium
 *.so
 *.dylib
 
+# Test data (persistent Docker volumes for acceptance tests)
+.testdata/
+
 # Test secrets
 .env.test
 .env.*
