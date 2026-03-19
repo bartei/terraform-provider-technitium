@@ -1365,7 +1365,12 @@ Add `TargetProvider` to the `TargetResource` constants:
 TargetProvider TargetResource = 4
 ```
 
-Update `validateSuppressIDs` in `provider.go` to accept DNS-REQ-028 (extend the range or add explicit check).
+Update `validateSuppressIDs` in `provider.go`:
+- The validation logic itself derives valid IDs dynamically from `AllRequirementIDs()`, so DNS-REQ-028 will be accepted automatically.
+- **Fix the error message** which hardcodes "DNS-REQ-001 through DNS-REQ-027". Change it to derive the range dynamically:
+  ```go
+  fmt.Sprintf("suppress contains unknown requirement ID: %q. Valid IDs are DNS-REQ-001 through DNS-REQ-%03d.", id, len(validators.DNSSecurityRequirements))
+  ```
 
 - [ ] **Step 2: Write failing tests for ValidateProvider**
 
