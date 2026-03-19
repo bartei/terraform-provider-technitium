@@ -25,8 +25,9 @@ type Zone struct {
 	QueryAccessNetworkACL  []string `json:"queryAccessNetworkACL"`
 	ZoneTransfer           string   `json:"zoneTransfer"`
 	ZoneTransferNetworkACL []string `json:"zoneTransferNetworkACL"`
-	ZoneTransferTsigKeys   []string `json:"zoneTransferTsigKeyNames"`
-	Notify                 string   `json:"notify"`
+	ZoneTransferTsigKeys           []string `json:"zoneTransferTsigKeyNames"`
+	PrimaryZoneTransferTsigKeyName string   `json:"primaryZoneTransferTsigKeyName"`
+	Notify                         string   `json:"notify"`
 	NotifyNameServers      []string `json:"notifyNameServers"`
 	Update                 string   `json:"update"`
 	UpdateNetworkACL       []string `json:"updateNetworkACL"`
