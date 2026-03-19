@@ -3,6 +3,7 @@
 [![Terraform Registry](https://img.shields.io/badge/terraform-registry-blueviolet)](https://registry.terraform.io/providers/darkhonor/technitium/latest)
 [![Go Version](https://img.shields.io/badge/go-1.26-blue)](https://go.dev/)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-orange)](LICENSE)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/darkhonor/terraform-provider-technitium/badge)](https://securityscorecards.dev/viewer/?uri=github.com/darkhonor/terraform-provider-technitium)
 
 ## Overview
 
@@ -187,6 +188,17 @@ acceptance test. The container stays running so you can iterate. Tear it down wh
 ```bash
 make testacc-down
 ```
+
+> **Note:** Acceptance tests require a running Technitium DNS Server instance. The included
+> Docker Compose file provides a pre-configured test environment:
+>
+> ```bash
+> docker compose -f docker-compose.test.yml up -d
+> ```
+>
+> The `make testacc-up` target handles the full lifecycle: starts the container, provisions a
+> fresh API token, and runs every acceptance test. Unit tests (`make test`) do not require
+> Docker and run entirely offline.
 
 ### FIPS Build
 
