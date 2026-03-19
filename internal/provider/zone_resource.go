@@ -5,10 +5,12 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -207,11 +209,45 @@ func (r *ZoneResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 				"CNSSI 1253 mandates higher security margins for classified environments. "+
 				"Set dnssec { curve = \"P384\" } to comply.")
 	}
+
+	// Zone type validation for zone_transfer_tsig_key_names
+	if !plan.ZoneTransferTsigKeyNames.IsNull() && !plan.ZoneTransferTsigKeyNames.IsUnknown() {
+		zoneType := plan.Type.ValueString()
+		validTransferTypes := map[string]bool{
+			"Primary": true, "Secondary": true, "Forwarder": true, "Catalog": true,
+		}
+		if !validTransferTypes[zoneType] {
+			resp.Diagnostics.AddError(
+				"Invalid zone type for zone_transfer_tsig_key_names",
+				fmt.Sprintf("\"zone_transfer_tsig_key_names\" is only valid for Primary, Secondary, Forwarder, and Catalog zones. Got: %q.", zoneType))
+		}
+	}
+
+	// Zone type validation for primary_zone_transfer_tsig_key_name
+	if !plan.PrimaryZoneTransferTsigKeyName.IsNull() && !plan.PrimaryZoneTransferTsigKeyName.IsUnknown() &&
+		plan.PrimaryZoneTransferTsigKeyName.ValueString() != "" {
+		zoneType := plan.Type.ValueString()
+		validPrimaryTypes := map[string]bool{
+			"Secondary": true, "SecondaryForwarder": true, "SecondaryCatalog": true,
+		}
+		if !validPrimaryTypes[zoneType] {
+			resp.Diagnostics.AddError(
+				"Invalid zone type for primary_zone_transfer_tsig_key_name",
+				fmt.Sprintf("\"primary_zone_transfer_tsig_key_name\" is only valid for Secondary, SecondaryForwarder, and SecondaryCatalog zones. Got: %q.", zoneType))
+		}
+	}
+
 }
 
 func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan ZoneResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Validate TSIG key references exist on the server
+	r.validateTsigKeyReferences(ctx, &plan, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -289,6 +325,12 @@ func (r *ZoneResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	var state ZoneResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Validate TSIG key references exist on the server
+	r.validateTsigKeyReferences(ctx, &plan, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -500,6 +542,53 @@ func (r *ZoneResource) readZoneState(ctx context.Context, model *ZoneResourceMod
 	}
 
 	return nil
+}
+
+// validateTsigKeyReference checks that a TSIG key exists and, in NSS mode,
+// that its algorithm meets FIPS 140-3 / CNSSI 1253 requirements.
+func (r *ZoneResource) validateTsigKeyReference(keyName string, diagnostics *diag.Diagnostics) {
+	key, err := r.client.TSIGKeyGet(keyName)
+	if err != nil {
+		if errors.Is(err, client.ErrTSIGKeyNotFound) {
+			diagnostics.AddError(
+				"TSIG key not found",
+				fmt.Sprintf("TSIG key %q not found on the server. Ensure the key exists before referencing it in a zone.", keyName))
+		} else {
+			diagnostics.AddError(
+				"Error validating TSIG key",
+				fmt.Sprintf("Failed to look up TSIG key %q: %s", keyName, err.Error()))
+		}
+		return
+	}
+
+	if r.providerData != nil && r.providerData.NSS {
+		if !isNSSCompliantTSIGAlgorithm(key.AlgorithmName) {
+			diagnostics.AddError(
+				"TSIG key does not meet NSS requirements",
+				fmt.Sprintf("TSIG key %q uses algorithm %q which does not meet FIPS 140-3/CNSSI 1253 requirements. "+
+					"Use hmac-sha256, hmac-sha384, or hmac-sha512.", keyName, key.AlgorithmName))
+		}
+	}
+}
+
+// validateTsigKeyReferences validates all TSIG key references in a zone plan.
+func (r *ZoneResource) validateTsigKeyReferences(ctx context.Context, plan *ZoneResourceModel, diagnostics *diag.Diagnostics) {
+	// Validate zone_transfer_tsig_key_names
+	if !plan.ZoneTransferTsigKeyNames.IsNull() && !plan.ZoneTransferTsigKeyNames.IsUnknown() {
+		var keyNames []string
+		plan.ZoneTransferTsigKeyNames.ElementsAs(ctx, &keyNames, false)
+		for _, keyName := range keyNames {
+			r.validateTsigKeyReference(keyName, diagnostics)
+		}
+	}
+
+	// Validate primary_zone_transfer_tsig_key_name
+	if !plan.PrimaryZoneTransferTsigKeyName.IsNull() && !plan.PrimaryZoneTransferTsigKeyName.IsUnknown() {
+		keyName := plan.PrimaryZoneTransferTsigKeyName.ValueString()
+		if keyName != "" {
+			r.validateTsigKeyReference(keyName, diagnostics)
+		}
+	}
 }
 
 // mapIANAAlgorithmToAPI converts IANA algorithm names (e.g., ECDSAP256SHA256)

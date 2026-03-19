@@ -130,6 +130,98 @@ func TestAccZoneResource_ZoneTransferTsigKeys(t *testing.T) {
 	})
 }
 
+func TestAccZoneResource_PrimaryTsigKeyOnPrimaryZone_Rejected(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccZoneResourcePrimaryTsigOnPrimary(),
+				ExpectError: regexp.MustCompile(`only valid for Secondary`),
+			},
+		},
+	})
+}
+
+func testAccZoneResourcePrimaryTsigOnPrimary() string {
+	return fmt.Sprintf(`
+provider "technitium" {
+  server_url = "http://127.0.0.1:5380"
+  api_token  = "%s"
+}
+
+resource "technitium_zone" "bad" {
+  name = "acc-bad-primary-tsig.example.com"
+  type = "Primary"
+
+  primary_zone_transfer_tsig_key_name = "nonexistent-key"
+
+  dnssec {
+    enabled = false
+  }
+}
+`, testAccAPIToken())
+}
+
+func TestAccZoneResource_ZoneTransferTsigKeys_OnStub_Rejected(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccZoneResourceTsigKeysOnStub(),
+				ExpectError: regexp.MustCompile(`only valid for Primary`),
+			},
+		},
+	})
+}
+
+func testAccZoneResourceTsigKeysOnStub() string {
+	return fmt.Sprintf(`
+provider "technitium" {
+  server_url = "http://127.0.0.1:5380"
+  api_token  = "%s"
+}
+
+resource "technitium_zone" "bad" {
+  name = "acc-bad-stub-tsig.example.com"
+  type = "Stub"
+
+  zone_transfer_tsig_key_names = ["some-key"]
+}
+`, testAccAPIToken())
+}
+
+func TestAccZoneResource_TsigKeyNotFound_Rejected(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccZoneResourceTsigKeyNotFound(),
+				ExpectError: regexp.MustCompile(`TSIG key .* not found`),
+			},
+		},
+	})
+}
+
+func testAccZoneResourceTsigKeyNotFound() string {
+	return fmt.Sprintf(`
+provider "technitium" {
+  server_url = "http://127.0.0.1:5380"
+  api_token  = "%s"
+}
+
+resource "technitium_zone" "bad" {
+  name = "acc-bad-notfound-tsig.example.com"
+  type = "Primary"
+
+  zone_transfer_tsig_key_names = ["nonexistent-key.example.com"]
+
+  dnssec {
+    enabled = false
+  }
+}
+`, testAccAPIToken())
+}
+
 func testAccZoneResourceWithTsigKeys(zoneName string) string {
 	return fmt.Sprintf(`
 provider "technitium" {
