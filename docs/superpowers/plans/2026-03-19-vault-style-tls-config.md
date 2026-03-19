@@ -22,9 +22,9 @@
 | `internal/client/tls_errors_test.go` | Unit tests for TLS error classification |
 | `internal/provider/provider.go` | 4 new schema attrs, env var fallbacks with precedence, `ClientConfig` construction, tiered diagnostics in `Configure()` |
 | `internal/provider/provider_test.go` | Unit tests for env var precedence, tiered diagnostic message generation |
-| `internal/provider/validators/stig_engine.go` | `TargetProvider` constant, `ProviderConfigAccessor`, `ValidateProvider()` method |
+| `internal/provider/validators/stig_engine.go` | `ValidateProvider()` method (thin wrapper delegating to `ValidateConfig` with `TargetProvider`) |
 | `internal/provider/validators/stig.go` | `ProviderBindings` array with 3 new validators, validator functions |
-| `internal/provider/validators/stig_baselines_gen.go` | Verify SC-8 entry exists (likely no changes needed) |
+| `internal/provider/validators/stig_baselines_gen.go` | Add `TargetProvider` constant, add DNS-REQ-028 requirement for TLS transport (SC-8) |
 | `internal/provider/validators/stig_engine_test.go` | Unit tests for `ValidateProvider()` |
 | `internal/provider/validators/stig_test.go` | Update structural tests to include `ProviderBindings` |
 | `internal/provider/stig_acceptance_test.go` | Acceptance tests for TLS STIG validators |
@@ -192,6 +192,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"net"
 	"testing"
 )
@@ -1057,7 +1058,13 @@ apiClient, err := client.NewClient(client.ClientConfig{
 })
 ```
 
-Add import for `strconv` to provider.go.
+Add imports to provider.go:
+- `"strconv"` for `ParseBool`
+- `"strings"` (likely already present)
+- `"github.com/hashicorp/terraform-plugin-framework/schema/validator"` for the `Validators` field
+- `"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"` for `OneOf`
+
+Verify `terraform-plugin-framework-validators` is in `go.mod` — it was added in the blocked/allowed zones feature. If not present, run `go get github.com/hashicorp/terraform-plugin-framework-validators`.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -1282,7 +1289,22 @@ if err := apiClient.Ping(); err != nil {
 }
 ```
 
-Note: `stigEnabled` and `nssEnabled` bools need to be resolved before the Ping call. Move the STIG config parsing block above the client construction, or extract the STIG/NSS booleans early. The exact refactoring depends on current `Configure()` ordering — the implementer should read the method and determine the minimal reorder needed.
+**IMPORTANT: Configure() reorder required.** The current `Configure()` flow is:
+1. Parse server_url, api_token (lines 163-181)
+2. Create client + Ping (lines 183-200)
+3. Parse STIG config (lines 207-255)
+4. SC-8 warning (lines 257-262)
+
+This must be reordered so STIG/NSS booleans are available for tiered diagnostics:
+1. Parse server_url, api_token
+2. Resolve TLS config (env vars, defaults)
+3. Parse STIG config (extract `stigEnabled`, `nssEnabled` booleans)
+4. **Run `ValidateProvider()` — STIG validators fire BEFORE Ping** (catches HTTP URL, skip_tls_verify, min version)
+5. Create client
+6. Ping with tiered TLS error diagnostics (uses `stigEnabled`/`nssEnabled` for context-aware messages)
+7. Build provider data
+
+This ordering ensures STIG validators block invalid configs before attempting any network connection, and Ping errors get context-aware diagnostics.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -1306,14 +1328,46 @@ pass through unmodified."
 
 ---
 
-## Task 7: STIG Engine Extension — TargetProvider and ValidateProvider
+## Task 7: STIG Engine Extension — TargetProvider, DNS-REQ-028, and ValidateProvider
 
 **Files:**
-- Modify: `internal/provider/validators/stig_baselines_gen.go` (add `TargetProvider`)
+- Modify: `internal/provider/validators/stig_baselines_gen.go` (add `TargetProvider`, add DNS-REQ-028)
 - Modify: `internal/provider/validators/stig_engine.go` (add `ValidateProvider`)
-- Create: `internal/provider/validators/stig_engine_test.go` (or add to existing)
+- Create: `internal/provider/validators/stig_engine_provider_test.go`
 
-- [ ] **Step 1: Write failing tests for ValidateProvider**
+> **IMPORTANT:** DNS-REQ-001 is for DNSSEC zone signing, NOT TLS transport. Using it for TLS validators would cause cross-suppression issues (suppressing DNS-REQ-001 for TLS would also suppress DNSSEC checks). Create a **new** DNS-REQ-028 requirement specifically for TLS transport encryption.
+
+- [ ] **Step 1: Add DNS-REQ-028 to stig_baselines_gen.go**
+
+Add to the `DNSSecurityRequirements` slice in `internal/provider/validators/stig_baselines_gen.go`:
+
+```go
+{
+	ID:        "DNS-REQ-028",
+	Title:     "Management plane connections must use encrypted transport (TLS)",
+	Severity:  "medium",
+	Controls:  []string{"SC-8"},
+	CCIs:      []string{"CCI-002418", "CCI-002420", "CCI-002421"},
+	Provenance: []STIGProvenance{
+		{
+			RuleID:      "SV-270286r1_rule",
+			BenchmarkID: "DNS_Policy",
+			Title:       "Management connections to DNS infrastructure must use encrypted transport",
+		},
+	},
+	CheckType: StatelessCheck,
+},
+```
+
+Add `TargetProvider` to the `TargetResource` constants:
+
+```go
+TargetProvider TargetResource = 4
+```
+
+Update `validateSuppressIDs` in `provider.go` to accept DNS-REQ-028 (extend the range or add explicit check).
+
+- [ ] **Step 2: Write failing tests for ValidateProvider**
 
 Create `internal/provider/validators/stig_engine_provider_test.go`:
 
@@ -1341,7 +1395,7 @@ func TestEngine_ValidateProvider_EmitsFindings(t *testing.T) {
 	// Register a provider binding that always fails
 	engine.RegisterBindings(TargetProvider, []ValidatorBinding{
 		{
-			RequirementID: "DNS-REQ-001",
+			RequirementID: "DNS-REQ-028",
 			Resource:      TargetProvider,
 			Attributes:    []string{"skip_tls_verify"},
 			StatelessFn: func(ctx context.Context, config ConfigAccessor) bool {
@@ -1352,9 +1406,9 @@ func TestEngine_ValidateProvider_EmitsFindings(t *testing.T) {
 	})
 
 	var diags diag.Diagnostics
-	accessor := &MockAccessor{
-		Strings: map[string]string{"skip_tls_verify": "true"},
-	}
+	accessor := NewMockAccessor(map[string]interface{}{
+		"skip_tls_verify": true,
+	})
 	engine.ValidateProvider(context.Background(), accessor, &diags)
 
 	if !diags.HasError() {
@@ -1375,7 +1429,7 @@ func TestEngine_ValidateProvider_WarnMode(t *testing.T) {
 
 	engine.RegisterBindings(TargetProvider, []ValidatorBinding{
 		{
-			RequirementID: "DNS-REQ-001",
+			RequirementID: "DNS-REQ-028",
 			Resource:      TargetProvider,
 			Attributes:    []string{"skip_tls_verify"},
 			StatelessFn: func(ctx context.Context, config ConfigAccessor) bool {
@@ -1386,9 +1440,9 @@ func TestEngine_ValidateProvider_WarnMode(t *testing.T) {
 	})
 
 	var diags diag.Diagnostics
-	accessor := &MockAccessor{
-		Strings: map[string]string{"skip_tls_verify": "true"},
-	}
+	accessor := NewMockAccessor(map[string]interface{}{
+		"skip_tls_verify": true,
+	})
 	engine.ValidateProvider(context.Background(), accessor, &diags)
 
 	if diags.HasError() {
@@ -1403,7 +1457,7 @@ func TestEngine_ValidateProvider_Suppressed(t *testing.T) {
 	engine := NewEngine(EngineConfig{
 		Enabled:      true,
 		Enforcement:  "strict",
-		Suppressions: []string{"DNS-REQ-001"},
+		Suppressions: []string{"DNS-REQ-028"},
 		Categorization: Categorization{
 			Confidentiality: "moderate",
 			Integrity:       "moderate",
@@ -1413,7 +1467,7 @@ func TestEngine_ValidateProvider_Suppressed(t *testing.T) {
 
 	engine.RegisterBindings(TargetProvider, []ValidatorBinding{
 		{
-			RequirementID: "DNS-REQ-001",
+			RequirementID: "DNS-REQ-028",
 			Resource:      TargetProvider,
 			Attributes:    []string{"skip_tls_verify"},
 			StatelessFn: func(ctx context.Context, config ConfigAccessor) bool {
@@ -1424,9 +1478,9 @@ func TestEngine_ValidateProvider_Suppressed(t *testing.T) {
 	})
 
 	var diags diag.Diagnostics
-	accessor := &MockAccessor{
-		Strings: map[string]string{"skip_tls_verify": "true"},
-	}
+	accessor := NewMockAccessor(map[string]interface{}{
+		"skip_tls_verify": true,
+	})
 	engine.ValidateProvider(context.Background(), accessor, &diags)
 
 	if diags.HasError() {
@@ -1441,7 +1495,7 @@ func TestEngine_ValidateProvider_Disabled(t *testing.T) {
 
 	engine.RegisterBindings(TargetProvider, []ValidatorBinding{
 		{
-			RequirementID: "DNS-REQ-001",
+			RequirementID: "DNS-REQ-028",
 			Resource:      TargetProvider,
 			Attributes:    []string{"skip_tls_verify"},
 			StatelessFn: func(ctx context.Context, config ConfigAccessor) bool {
@@ -1452,7 +1506,7 @@ func TestEngine_ValidateProvider_Disabled(t *testing.T) {
 	})
 
 	var diags diag.Diagnostics
-	engine.ValidateProvider(context.Background(), &MockAccessor{}, &diags)
+	engine.ValidateProvider(context.Background(), NewMockAccessor(nil), &diags)
 
 	if diags.HasError() || len(diags.Warnings()) > 0 {
 		t.Error("disabled engine should produce no diagnostics")
@@ -1460,54 +1514,21 @@ func TestEngine_ValidateProvider_Disabled(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **Step 3: Run tests to verify they fail**
 
 Run: `go test ./internal/provider/validators/... -run "TestEngine_ValidateProvider" -v`
 Expected: FAIL — `TargetProvider` and `ValidateProvider` undefined
 
-- [ ] **Step 3: Add TargetProvider constant**
-
-In `internal/provider/validators/stig_baselines_gen.go`, add to the `TargetResource` constants:
-
-```go
-TargetProvider TargetResource = 4
-```
-
 - [ ] **Step 4: Implement ValidateProvider on Engine**
 
-In `internal/provider/validators/stig_engine.go`, add after `ValidatePlan`:
+In `internal/provider/validators/stig_engine.go`, add after `ValidatePlan`. This is a thin wrapper that delegates to `ValidateConfig` to avoid code duplication:
 
 ```go
 // ValidateProvider evaluates provider-level validators during Configure().
-// Uses the same enforcement, suppression, and diagnostic logic as resource validators.
+// Delegates to ValidateConfig with TargetProvider — same enforcement,
+// suppression, and diagnostic logic as resource validators.
 func (e *Engine) ValidateProvider(ctx context.Context, config ConfigAccessor, diags *diag.Diagnostics) {
-	if !e.config.Enabled {
-		return
-	}
-
-	bindings, ok := e.bindings[TargetProvider]
-	if !ok {
-		return
-	}
-
-	for _, b := range bindings {
-		if !b.Implemented || b.StatelessFn == nil {
-			continue
-		}
-
-		req, ok := e.requirements[b.RequirementID]
-		if !ok {
-			continue
-		}
-
-		if !e.controlInScope(req.Controls) {
-			continue
-		}
-
-		if !b.StatelessFn(ctx, config) {
-			e.emitFinding(req, diags)
-		}
-	}
+	e.ValidateConfig(ctx, TargetProvider, config, diags)
 }
 ```
 
@@ -1520,11 +1541,11 @@ Expected: All 4 tests PASS
 
 ```bash
 git add internal/provider/validators/stig_baselines_gen.go internal/provider/validators/stig_engine.go internal/provider/validators/stig_engine_provider_test.go
-git commit -m "feat(stig): add TargetProvider and ValidateProvider for provider-level validators
+git commit -m "feat(stig): add TargetProvider, DNS-REQ-028, and ValidateProvider
 
-Extends the STIG engine to support provider-level validators that fire
-during Configure(). Same enforcement, suppression, and diagnostic logic
-as resource-level validators. Uses ConfigAccessor for attribute access."
+New DNS-REQ-028 requirement for TLS transport encryption (SC-8), separate
+from DNS-REQ-001 (DNSSEC). ValidateProvider delegates to ValidateConfig
+with TargetProvider to avoid code duplication."
 ```
 
 ---
@@ -1548,43 +1569,43 @@ import (
 )
 
 func TestValidateTLSEnabled_HTTP_Fails(t *testing.T) {
-	accessor := &MockAccessor{
-		Strings: map[string]string{"server_url": "http://dns.example.com"},
-	}
+	accessor := NewMockAccessor(map[string]interface{}{
+		"server_url": "http://dns.example.com",
+	})
 	if validateTLSEnabled(context.Background(), accessor) {
 		t.Error("HTTP URL should fail TLS enabled check")
 	}
 }
 
 func TestValidateTLSEnabled_HTTPS_Passes(t *testing.T) {
-	accessor := &MockAccessor{
-		Strings: map[string]string{"server_url": "https://dns.example.com"},
-	}
+	accessor := NewMockAccessor(map[string]interface{}{
+		"server_url": "https://dns.example.com",
+	})
 	if !validateTLSEnabled(context.Background(), accessor) {
 		t.Error("HTTPS URL should pass TLS enabled check")
 	}
 }
 
 func TestValidateTLSEnabled_NullURL_Passes(t *testing.T) {
-	accessor := &MockAccessor{}
+	accessor := NewMockAccessor(nil)
 	if !validateTLSEnabled(context.Background(), accessor) {
 		t.Error("null URL should pass (cannot validate)")
 	}
 }
 
 func TestValidateTLSMinVersion_12_Fails(t *testing.T) {
-	accessor := &MockAccessor{
-		Strings: map[string]string{"tls_min_version": "1.2"},
-	}
+	accessor := NewMockAccessor(map[string]interface{}{
+		"tls_min_version": "1.2",
+	})
 	if validateTLSMinVersion(context.Background(), accessor) {
 		t.Error("TLS 1.2 should fail min version check")
 	}
 }
 
 func TestValidateTLSMinVersion_13_Passes(t *testing.T) {
-	accessor := &MockAccessor{
-		Strings: map[string]string{"tls_min_version": "1.3"},
-	}
+	accessor := NewMockAccessor(map[string]interface{}{
+		"tls_min_version": "1.3",
+	})
 	if !validateTLSMinVersion(context.Background(), accessor) {
 		t.Error("TLS 1.3 should pass min version check")
 	}
@@ -1592,52 +1613,39 @@ func TestValidateTLSMinVersion_13_Passes(t *testing.T) {
 
 func TestValidateTLSMinVersion_Null_Passes(t *testing.T) {
 	// Null means default (1.3) — compliant
-	accessor := &MockAccessor{}
+	accessor := NewMockAccessor(nil)
 	if !validateTLSMinVersion(context.Background(), accessor) {
 		t.Error("null (default 1.3) should pass")
 	}
 }
 
 func TestValidateTLSVerification_SkipTrue_Fails(t *testing.T) {
-	accessor := &MockAccessor{
-		Bools: map[string]bool{"skip_tls_verify": true},
-	}
+	accessor := NewMockAccessor(map[string]interface{}{
+		"skip_tls_verify": true, // bool, not string — MockAccessor uses type assertion
+	})
 	if validateTLSVerification(context.Background(), accessor) {
 		t.Error("skip_tls_verify=true should fail verification check")
 	}
 }
 
 func TestValidateTLSVerification_SkipFalse_Passes(t *testing.T) {
-	accessor := &MockAccessor{
-		Bools: map[string]bool{"skip_tls_verify": false},
-	}
+	accessor := NewMockAccessor(map[string]interface{}{
+		"skip_tls_verify": false,
+	})
 	if !validateTLSVerification(context.Background(), accessor) {
 		t.Error("skip_tls_verify=false should pass")
 	}
 }
 
 func TestValidateTLSVerification_Null_Passes(t *testing.T) {
-	accessor := &MockAccessor{}
+	accessor := NewMockAccessor(nil)
 	if !validateTLSVerification(context.Background(), accessor) {
 		t.Error("null (default false) should pass")
 	}
 }
 ```
 
-Note: The `MockAccessor` must support `Bools` map. Check the existing `MockAccessor` implementation — it may need a `Bools` field and updated `GetBool` method. If `GetBool` currently only checks `Strings`, add:
-
-```go
-type MockAccessor struct {
-	Strings     map[string]string
-	StringLists map[string][]string
-	Bools       map[string]bool
-}
-
-func (m *MockAccessor) GetBool(path string) (bool, bool) {
-	v, ok := m.Bools[path]
-	return v, ok
-}
-```
+> **Note:** Uses the existing `NewMockAccessor(map[string]interface{}{...})` constructor from `accessors.go`. Boolean values must be actual `bool` type (not string `"true"`) because `GetBool` uses `v.(bool)` type assertion.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -1650,23 +1658,25 @@ Add to `internal/provider/validators/stig.go`:
 
 ```go
 // ProviderBindings defines STIG validators for provider-level TLS configuration.
+// Uses DNS-REQ-028 (TLS transport encryption), NOT DNS-REQ-001 (DNSSEC zone signing).
+// This separation ensures suppressing TLS checks doesn't suppress DNSSEC checks.
 var ProviderBindings = []ValidatorBinding{
 	{
-		RequirementID: "DNS-REQ-001", // SC-8: Transmission Confidentiality and Integrity
+		RequirementID: "DNS-REQ-028", // SC-8: Management plane encrypted transport
 		Resource:      TargetProvider,
 		Attributes:    []string{"server_url"},
 		StatelessFn:   validateTLSEnabled,
 		Implemented:   true,
 	},
 	{
-		RequirementID: "DNS-REQ-001",
+		RequirementID: "DNS-REQ-028",
 		Resource:      TargetProvider,
 		Attributes:    []string{"tls_min_version"},
 		StatelessFn:   validateTLSMinVersion,
 		Implemented:   true,
 	},
 	{
-		RequirementID: "DNS-REQ-001",
+		RequirementID: "DNS-REQ-028",
 		Resource:      TargetProvider,
 		Attributes:    []string{"skip_tls_verify"},
 		StatelessFn:   validateTLSVerification,
@@ -1702,18 +1712,23 @@ func validateTLSVerification(ctx context.Context, config ConfigAccessor) bool {
 }
 ```
 
-- [ ] **Step 4: Update structural tests**
+- [ ] **Step 4: Update AllBindings() and structural tests**
 
-In `internal/provider/validators/stig_test.go`, update `TestBindings_AllRequirementsBound` and related tests to include `ProviderBindings` in the binding collection:
+In `internal/provider/validators/stig.go`, update the `AllBindings()` function to include `ProviderBindings`:
 
 ```go
-allBindings := append(append(append(append(
-	ZoneBindings,
-	ServerSettingsBindings...),
-	RecordBindings...),
-	TSIGKeyBindings...),
-	ProviderBindings...)
+func AllBindings() []ValidatorBinding {
+	var all []ValidatorBinding
+	all = append(all, ZoneBindings...)
+	all = append(all, ServerSettingsBindings...)
+	all = append(all, RecordBindings...)
+	all = append(all, TSIGKeyBindings...)
+	all = append(all, ProviderBindings...)
+	return all
+}
 ```
+
+The structural tests (`TestBindings_AllRequirementsBound`, etc.) use `AllBindings()`, so they will automatically pick up `ProviderBindings` once the function is updated.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -1724,11 +1739,11 @@ Expected: All tests PASS (new + existing structural tests)
 
 ```bash
 git add internal/provider/validators/stig.go internal/provider/validators/stig_test.go
-git commit -m "feat(stig): add TLS provider-level validators for SC-8
+git commit -m "feat(stig): add TLS provider-level validators for DNS-REQ-028 (SC-8)
 
 Three validators: validateTLSEnabled (HTTP vs HTTPS), validateTLSMinVersion
 (1.3 required), validateTLSVerification (skip_tls_verify must be false).
-Registered as ProviderBindings under TargetProvider."
+Registered as ProviderBindings under TargetProvider with DNS-REQ-028."
 ```
 
 ---
@@ -1792,6 +1807,9 @@ func (a *providerConfigAccessor) GetString(path string) (string, bool) {
 func (a *providerConfigAccessor) GetBool(path string) (bool, bool) {
 	switch path {
 	case "skip_tls_verify":
+		// Always returns ok=true because the resolved value always exists
+		// after resolveTLSBool (explicit default). This means the validator
+		// always evaluates — which is correct since the default (false) is compliant.
 		return a.skipTLSVerify, true
 	default:
 		return false, false
@@ -1856,7 +1874,7 @@ func TestAccSTIG_Strict_HTTP_PlanFails(t *testing.T) {
 				Config: testAccSTIGProviderConfigHTTP("strict", nil, "moderate") + `
 data "technitium_zones" "test" {}
 `,
-				ExpectError: regexp.MustCompile(`DNS-REQ-001.*SC-8`),
+				ExpectError: regexp.MustCompile(`DNS-REQ-028.*SC-8`),
 			},
 		},
 	})
@@ -1885,7 +1903,7 @@ func TestAccSTIG_Strict_SkipTLSVerify_PlanFails(t *testing.T) {
 				Config: testAccSTIGProviderConfigSkipTLS("strict", nil, "moderate") + `
 data "technitium_zones" "test" {}
 `,
-				ExpectError: regexp.MustCompile(`DNS-REQ-001.*SC-8`),
+				ExpectError: regexp.MustCompile(`DNS-REQ-028.*SC-8`),
 			},
 		},
 	})
@@ -1896,7 +1914,7 @@ func TestAccSTIG_Suppress_TLSReq_SkipVerify_Succeeds(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSTIGProviderConfigSkipTLS("strict", []string{"DNS-REQ-001"}, "moderate") + `
+				Config: testAccSTIGProviderConfigSkipTLS("strict", []string{"DNS-REQ-028"}, "moderate") + `
 data "technitium_zones" "test" {}
 `,
 				// Suppressed — should succeed (warning only)
@@ -1911,6 +1929,7 @@ Add helper functions:
 ```go
 func testAccSTIGProviderConfigHTTP(enforcement string, suppress []string, baseline string) string {
 	// Uses http:// URL to trigger validateTLSEnabled
+	// ValidateProvider fires BEFORE Ping, so STIG errors are caught before connectivity check
 	suppressStr := "[]"
 	if len(suppress) > 0 {
 		items := make([]string, len(suppress))
@@ -1922,7 +1941,7 @@ func testAccSTIGProviderConfigHTTP(enforcement string, suppress []string, baseli
 	return fmt.Sprintf(`
 provider "technitium" {
   server_url = "http://localhost:5380"
-  api_token  = "test-token"
+  api_token  = %q
 
   stig_compliance {
     enabled     = true
@@ -1934,10 +1953,11 @@ provider "technitium" {
     }
   }
 }
-`, enforcement, suppressStr, baseline)
+`, testAccAPIToken(), enforcement, suppressStr, baseline)
 }
 
 func testAccSTIGProviderConfigSkipTLS(enforcement string, suppress []string, baseline string) string {
+	// ValidateProvider fires BEFORE Ping, so STIG errors are caught before connectivity check
 	suppressStr := "[]"
 	if len(suppress) > 0 {
 		items := make([]string, len(suppress))
@@ -1949,7 +1969,7 @@ func testAccSTIGProviderConfigSkipTLS(enforcement string, suppress []string, bas
 	return fmt.Sprintf(`
 provider "technitium" {
   server_url      = "https://localhost:5380"
-  api_token       = "test-token"
+  api_token       = %q
   skip_tls_verify = true
 
   stig_compliance {
@@ -1962,7 +1982,7 @@ provider "technitium" {
     }
   }
 }
-`, enforcement, suppressStr, baseline)
+`, testAccAPIToken(), enforcement, suppressStr, baseline)
 }
 ```
 
