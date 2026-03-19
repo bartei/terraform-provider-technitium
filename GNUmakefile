@@ -34,4 +34,9 @@ lint:
 install:
 	go build -o ~/.terraform.d/plugins/registry.terraform.io/darkhonor/technitium/0.0.1/$$(go env GOOS)_$$(go env GOARCH)/terraform-provider-technitium
 
-.PHONY: build build-fips test test-fips testacc testacc-up testacc-down generate lint install
+generate-stig:
+	@echo "Generating STIG baselines..."
+	go run ./tools/generate_stig_baselines.go
+	@echo "Generated internal/provider/validators/stig_baselines_gen.go"
+
+.PHONY: build build-fips test test-fips testacc testacc-up testacc-down generate lint install generate-stig
