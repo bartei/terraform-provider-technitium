@@ -499,3 +499,88 @@ func TestValidator_DNSREQ016_Server_AlwaysCompliant(t *testing.T) {
 		t.Error("expected server notify addresses validator to always return true")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Null-means-noncompliant tests (GitHub #8)
+// ---------------------------------------------------------------------------
+
+func TestValidator_DNSREQ001_Zone_DNSSECNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"dnssec.enabled": NullValue})
+	if validateDNSSECEnabled(context.Background(), m) {
+		t.Error("expected noncompliant when dnssec.enabled is null (omitted)")
+	}
+}
+
+func TestValidator_DNSREQ011_NxProofNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"dnssec.nx_proof": NullValue})
+	if validateNSEC3Required(context.Background(), m) {
+		t.Error("expected noncompliant when dnssec.nx_proof is null (omitted)")
+	}
+}
+
+func TestValidator_DNSREQ012_AlgorithmNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"dnssec.algorithm": NullValue})
+	if validateFIPSCrypto(context.Background(), m) {
+		t.Error("expected noncompliant when dnssec.algorithm is null (omitted)")
+	}
+}
+
+func TestValidator_DNSREQ004_ZoneTransferNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"zone_transfer_allowed_networks": NullValue})
+	if validateZoneTransferNetworks(context.Background(), m) {
+		t.Error("expected noncompliant when zone_transfer_allowed_networks is null (omitted)")
+	}
+}
+
+func TestValidator_DNSREQ016_Zone_NotifyNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"notify_addresses": NullValue})
+	if validateZoneNotifyAddresses(context.Background(), m) {
+		t.Error("expected noncompliant when notify_addresses is null (omitted)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Server settings: null-means-noncompliant tests (GitHub #8)
+// ---------------------------------------------------------------------------
+
+func TestValidator_DNSREQ001_Server_ValidationNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"dnssec_validation": NullValue})
+	if validateDNSSECValidation(context.Background(), m) {
+		t.Error("expected noncompliant when dnssec_validation is null (omitted)")
+	}
+}
+
+func TestValidator_DNSREQ007_LogQueriesNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"log_queries": NullValue})
+	if validateLogQueriesEnabled(context.Background(), m) {
+		t.Error("expected noncompliant when log_queries is null (omitted)")
+	}
+}
+
+func TestValidator_DNSREQ008_LoggingTypeNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"logging_type": NullValue})
+	if validateLoggingNotNull(context.Background(), m) {
+		t.Error("expected noncompliant when logging_type is null (omitted)")
+	}
+}
+
+func TestValidator_DNSREQ009_LoggingTypeNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"logging_type": NullValue})
+	if validateLoggingToFile(context.Background(), m) {
+		t.Error("expected noncompliant when logging_type is null (omitted) for file logging check")
+	}
+}
+
+func TestValidator_DNSREQ014_QnameNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"qname_minimization": NullValue})
+	if validateQnameMinimization(context.Background(), m) {
+		t.Error("expected noncompliant when qname_minimization is null (omitted)")
+	}
+}
+
+func TestValidator_DNSREQ015_RandomizeNull_Noncompliant(t *testing.T) {
+	m := NewMockAccessor(map[string]interface{}{"randomize_name": NullValue})
+	if validateRandomizeName(context.Background(), m) {
+		t.Error("expected noncompliant when randomize_name is null (omitted)")
+	}
+}
