@@ -1,0 +1,38 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "labels": ["dependencies", "renovate"],
+  "pinDigests": true,
+  "schedule": ["before 6am on Monday"],
+  "docker": {
+    "pinDigests": true,
+    "stabilityDays": 7
+  },
+  "github-actions": {
+    "pinDigests": true,
+    "stabilityDays": 3
+  },
+  "packageRules": [
+    {
+      "description": "FIPS-validated cryptography - manual review required",
+      "matchPackagePatterns": ["cryptography", "openssl", "boringssl"],
+      "stabilityDays": 7,
+      "automerge": false,
+      "prPriority": 20
+    },
+    {
+      "description": "Security scanning tools - always latest",
+      "matchPackagePatterns": ["trivy", "syft", "grype", "hadolint"],
+      "schedule": ["at any time"],
+      "automerge": true
+    },
+    {
+      "description": "Security patches - expedited",
+      "matchUpdateTypes": ["patch"],
+      "matchCategories": ["security"],
+      "schedule": ["at any time"],
+      "automerge": true,
+      "platformAutomerge": true
+    }
+  ]
+}
