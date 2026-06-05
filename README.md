@@ -35,7 +35,7 @@ terraform {
   required_providers {
     technitium = {
       source  = "bartei/technitium"
-      version = "~> 1.2"
+      version = "~> 1.0"
     }
   }
 }
@@ -172,7 +172,7 @@ terraform {
   required_providers {
     technitium = {
       source  = "bartei/technitium"
-      version = "~> 1.2"
+      version = "~> 1.0"
     }
   }
 }
