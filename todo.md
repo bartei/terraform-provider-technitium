@@ -38,7 +38,7 @@ within each section.
 - [x] **Update CLAUDE.md** — commands and conventions now match the lean CI.
 - [x] **`.golangci.yml` + `make lint`** — kept as local-only tooling (not a CI gate).
 - [x] **`renovate.json`** — dropped (automerge workflow gone; no dependabot config existed).
-- [ ] **Add `GPG_PRIVATE_KEY` / `GPG_PASSPHRASE` secrets** to `bartei/terraform-provider-technitium` before tagging the first release (manual, needs your GPG key).
+- [x] **`GPG_PRIVATE_KEY` secret** configured in repo settings (key has no passphrase; passphrase input dropped from release.yml).
 - [x] **Commit & push** to `origin` (`bartei`), `main` tracking set.
 
 ## Done this session (for context)
