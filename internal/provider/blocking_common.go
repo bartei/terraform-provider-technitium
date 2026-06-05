@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/bartei/terraform-provider-technitium/internal/client"
 )
 
 // FilterZoneType identifies which filter list (blocked or allowed) an operation

@@ -6,7 +6,7 @@ package inputvalidation
 import (
 	"context"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/provider/tfpath"
+	"github.com/bartei/terraform-provider-technitium/internal/provider/tfpath"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )

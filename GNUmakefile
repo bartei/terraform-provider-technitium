@@ -148,7 +148,7 @@ lint:
 	golangci-lint run ./...
 
 install:
-	go build -o ~/.terraform.d/plugins/registry.terraform.io/darkhonor/technitium/0.0.1/$$(go env GOOS)_$$(go env GOARCH)/terraform-provider-technitium
+	go build -o ~/.terraform.d/plugins/registry.terraform.io/bartei/technitium/0.0.1/$$(go env GOOS)_$$(go env GOARCH)/terraform-provider-technitium
 
 generate-stig:
 	@echo "Generating STIG baselines..."

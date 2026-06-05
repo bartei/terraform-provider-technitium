@@ -6,7 +6,7 @@ package provider
 import (
 	"context"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/provider/validators"
+	"github.com/bartei/terraform-provider-technitium/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
 

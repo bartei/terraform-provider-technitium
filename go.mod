@@ -1,4 +1,4 @@
-module github.com/darkhonor/terraform-provider-technitium
+module github.com/bartei/terraform-provider-technitium
 
 go 1.26.3
 

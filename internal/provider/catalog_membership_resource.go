@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/bartei/terraform-provider-technitium/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -166,7 +166,7 @@ func (r *CatalogMembershipResource) ModifyPlan(ctx context.Context, req resource
 				"does not yet expose those override flags; any such settings "+
 				"declared on the underlying technitium_zone resource may be "+
 				"silently shadowed by the catalog zone. See "+
-				"https://github.com/darkhonor/terraform-provider-technitium/issues/29 "+
+				"https://github.com/bartei/terraform-provider-technitium/issues/29 "+
 				"for follow-on work.",
 		)
 	}

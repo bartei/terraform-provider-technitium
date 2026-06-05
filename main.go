@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/provider"
+	"github.com/bartei/terraform-provider-technitium/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 
@@ -32,7 +32,7 @@ func main() {
 	}
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/darkhonor/technitium",
+		Address: "registry.terraform.io/bartei/technitium",
 		Debug:   debug,
 	}
 

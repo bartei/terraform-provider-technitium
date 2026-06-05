@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/bartei/terraform-provider-technitium/internal/client"
 )
 
 func TestResolveTLSConfig_HCLWinsOverEnv(t *testing.T) {

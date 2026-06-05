@@ -36,7 +36,7 @@ resource "technitium_zone" "lab" {
 # notify_addresses, etc.) may be silently shadowed by the catalog zone.
 #
 # See:
-# https://github.com/darkhonor/terraform-provider-technitium/issues/29
+# https://github.com/bartei/terraform-provider-technitium/issues/29
 resource "technitium_catalog_membership" "lab" {
   zone         = technitium_zone.lab.name
   catalog_zone = technitium_zone.cluster_catalog.name

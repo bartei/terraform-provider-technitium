@@ -1,9 +1,8 @@
 # Terraform Provider for Technitium DNS Server
 
-[![Terraform Registry](https://img.shields.io/badge/terraform-registry-blueviolet)](https://registry.terraform.io/providers/darkhonor/technitium/latest)
+[![Terraform Registry](https://img.shields.io/badge/terraform-registry-blueviolet)](https://registry.terraform.io/providers/bartei/technitium/latest)
 [![Go Version](https://img.shields.io/badge/go-1.26-blue)](https://go.dev/)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-orange)](LICENSE)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/darkhonor/terraform-provider-technitium/badge)](https://scorecard.dev/viewer/?uri=github.com/darkhonor/terraform-provider-technitium)
 
 ## Overview
 
@@ -76,7 +75,7 @@ to harden:
 terraform {
   required_providers {
     technitium = {
-      source  = "darkhonor/technitium"
+      source  = "bartei/technitium"
       version = "~> 1.2"
     }
   }
@@ -188,10 +187,10 @@ export TECHNITIUM_API_TOKEN="your-api-token"
 Both providers can add DNS records to Technitium, but they take fundamentally different
 paths. `hashicorp/dns` speaks generic [RFC 2136](https://datatracker.ietf.org/doc/rfc2136/)
 dynamic updates over TSIG — the same protocol Bind 9 uses — and works against any
-DNS server that supports it. `darkhonor/technitium` talks directly to Technitium's
+DNS server that supports it. `bartei/technitium` talks directly to Technitium's
 native HTTP API and exposes the full administrative surface, not just the records subset.
 
-| Capability | `hashicorp/dns` (v3.6.1) | `darkhonor/technitium` |
+| Capability | `hashicorp/dns` (v3.6.1) | `bartei/technitium` |
 |---|---|---|
 | Manage DNS records | yes (8 `*_record*` resources) | yes (`technitium_record`) |
 | Create + configure zones | no (zones must exist on the DNS server first) | yes (`technitium_zone`) |
@@ -263,7 +262,7 @@ the [DISA STIG Library](https://www.cyber.mil/stigs).
 terraform {
   required_providers {
     technitium = {
-      source  = "darkhonor/technitium"
+      source  = "bartei/technitium"
       version = "~> 1.2"
     }
   }
@@ -277,24 +276,23 @@ Then run `terraform init`.
 Clone the repository and install the provider binary into your local plugin directory:
 
 ```bash
-git clone https://github.com/darkhonor/terraform-provider-technitium.git
+git clone https://github.com/bartei/terraform-provider-technitium.git
 cd terraform-provider-technitium
 make install
 ```
 
 ## Documentation
 
-- [Terraform Registry Documentation](https://registry.terraform.io/providers/darkhonor/technitium/latest/docs)
+- [Terraform Registry Documentation](https://registry.terraform.io/providers/bartei/technitium/latest/docs)
 - [STIG Compliance Guide](docs/guides/stig-compliance.md)
 - [Changelog](CHANGELOG.md)
-- [Security policy](.github/SECURITY.md)
 
 ## Development
 
 ### Building
 
 ```bash
-git clone https://github.com/darkhonor/terraform-provider-technitium.git
+git clone https://github.com/bartei/terraform-provider-technitium.git
 cd terraform-provider-technitium
 make build
 ```
@@ -370,7 +368,7 @@ match `.env.test.example`). It does not require any production credential.
 > heredoc. The credential value therefore does not appear in `/proc/PID/cmdline`
 > (`ps -ef`) or `/proc/PID/environ` (`ps eww`) of any process spawned during token
 > provisioning. Resolved in v1.2.0
-> ([#35](https://github.com/darkhonor/terraform-provider-technitium/issues/35)).
+> ([#35](https://github.com/bartei/terraform-provider-technitium/issues/35)).
 
 CI runs `testacc-up-tls` automatically on every pull request.
 

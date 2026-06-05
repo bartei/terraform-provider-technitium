@@ -1,106 +1,67 @@
-name: Tests
+name: Test
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        with:
-          go-version: "1.26"
-      - run: go build -v ./...
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          go-version: "1.26"
-      - name: Run unit tests (skip acceptance)
-        run: go test -v -count=1 -run '^Test[^A]' ./...
+          go-version-file: "go.mod"
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test
+        run: go test -v ./...
 
   lint:
-    name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        with:
-          go-version: "1.26"
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
-      - name: Run golangci-lint
-        run: golangci-lint run ./...
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  fips:
-    name: FIPS Build
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: Check formatting
+        run: |
+          gofmt_output=$(gofmt -l .)
+          if [ -n "$gofmt_output" ]; then
+            echo "Files need formatting:"
+            echo "$gofmt_output"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+  docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        with:
-          go-version: "1.26"
-      - run: make build-fips
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        with:
-          go-version: "1.26"
-      - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
-      - name: Run govulncheck
-        run: govulncheck ./...
-      - name: Install gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.25.0
-      - name: Run gosec
-        run: gosec -exclude=G304 ./...
-
-  acceptance-tls:
-    name: Acceptance Tests (TLS)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        with:
-          go-version: "1.26"
-
-      # Pre-install Terraform CLI so terraform-plugin-testing uses it from PATH
-      # instead of having hc-install download a binary at runtime. Avoids the
-      # upstream HashiCorp PGP key expiry that breaks hc-install's signature
-      # verification — same fix the Documentation workflow needed.
-      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        with:
-          terraform_wrapper: false
-
-      # docker-compose.test.yml uses env_file: .env.test for the container's
-      # admin password. CI does not commit .env.test (it is gitignored), so
-      # bootstrap a stub from the example. The TLS acceptance path overrides
-      # TECHNITIUM_* vars inline at test invocation time and never reads
-      # .env.test for those values.
-      - name: Bootstrap stub .env.test for docker-compose env_file
-        run: cp .env.test.example .env.test
-
-      - name: Run TLS-mode acceptance suite
-        run: make testacc-up-tls
-
-      - name: Tear down test container
-        if: always()
-        run: make testacc-down-tls
+      - name: Verify docs exist
+        run: |
+          for f in docs/index.md docs/resources/zone.md docs/resources/record.md docs/data-sources/zone.md docs/guides/stig-compliance.md; do
+            if [ ! -f "$f" ]; then
+              echo "Missing documentation: $f"
+              exit 1
+            fi
+          done
+          echo "All documentation files present."

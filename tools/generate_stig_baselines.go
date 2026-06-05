@@ -6,7 +6,8 @@
 // security-mcp for DISA STIG rules and NIST 800-53 baselines.
 //
 // Usage:
-//   go run ./tools/generate_stig_baselines.go
+//
+//	go run ./tools/generate_stig_baselines.go
 //
 // Prerequisites:
 //   - Running security-mcp instance with imported STIGs
@@ -14,13 +15,13 @@
 //   - NIST 800-53 Rev 5 baselines imported
 //
 // The generation process:
-//   1. Query security-mcp for NIST 800-53 R5 baselines (LOW, MODERATE, HIGH)
-//   2. Query security-mcp for BIND 9.x STIG rules
-//   3. Query security-mcp for Windows Server 2022 DNS STIG rules
-//   4. For each rule, fetch CCI→control provenance chains
-//   5. Cross-reference both STIGs to produce DNS security requirements
-//   6. Map controls to baseline membership
-//   7. Output stig_baselines_gen.go with generation timestamp
+//  1. Query security-mcp for NIST 800-53 R5 baselines (LOW, MODERATE, HIGH)
+//  2. Query security-mcp for BIND 9.x STIG rules
+//  3. Query security-mcp for Windows Server 2022 DNS STIG rules
+//  4. For each rule, fetch CCI→control provenance chains
+//  5. Cross-reference both STIGs to produce DNS security requirements
+//  6. Map controls to baseline membership
+//  7. Output stig_baselines_gen.go with generation timestamp
 //
 // Quarterly refresh: run after importing updated STIGs from DISA.
 package main

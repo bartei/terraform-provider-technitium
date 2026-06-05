@@ -20,7 +20,7 @@ zone lists — enabling repeatable, version-controlled DNS configuration for bot
 general-purpose and security-sensitive environments.
 
 The provider is published at
-[registry.terraform.io/darkhonor/technitium](https://registry.terraform.io/providers/darkhonor/technitium).
+[registry.terraform.io/bartei/technitium](https://registry.terraform.io/providers/bartei/technitium).
 Source code and issue tracking are available on GitHub.
 
 ## Feature Highlights
@@ -47,7 +47,7 @@ National Security System (NSS) configuration and CNSSI 1253 categorization.
 terraform {
   required_providers {
     technitium = {
-      source = "registry.terraform.io/darkhonor/technitium"
+      source = "registry.terraform.io/bartei/technitium"
     }
   }
 }

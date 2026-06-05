@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/client"
-	"github.com/darkhonor/terraform-provider-technitium/internal/provider/validators"
+	"github.com/bartei/terraform-provider-technitium/internal/client"
+	"github.com/bartei/terraform-provider-technitium/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -40,16 +40,16 @@ type ServerSettingsResource struct {
 }
 
 type ServerSettingsResourceModel struct {
-	ID                          types.String `tfsdk:"id"`
-	DnssecValidation            types.Bool   `tfsdk:"dnssec_validation"`
-	Recursion                   types.String `tfsdk:"recursion"`
-	RecursionNetworkACL         types.List   `tfsdk:"recursion_network_acl"`
-	QnameMinimization           types.Bool   `tfsdk:"qname_minimization"`
-	RandomizeName               types.Bool   `tfsdk:"randomize_name"`
-	LogQueries                  types.Bool   `tfsdk:"log_queries"`
-	LoggingType                 types.String `tfsdk:"logging_type"`
-	MaxLogFileDays              types.Int64  `tfsdk:"max_log_file_days"`
-	EnableBlocking              types.Bool   `tfsdk:"enable_blocking"`
+	ID                           types.String `tfsdk:"id"`
+	DnssecValidation             types.Bool   `tfsdk:"dnssec_validation"`
+	Recursion                    types.String `tfsdk:"recursion"`
+	RecursionNetworkACL          types.List   `tfsdk:"recursion_network_acl"`
+	QnameMinimization            types.Bool   `tfsdk:"qname_minimization"`
+	RandomizeName                types.Bool   `tfsdk:"randomize_name"`
+	LogQueries                   types.Bool   `tfsdk:"log_queries"`
+	LoggingType                  types.String `tfsdk:"logging_type"`
+	MaxLogFileDays               types.Int64  `tfsdk:"max_log_file_days"`
+	EnableBlocking               types.Bool   `tfsdk:"enable_blocking"`
 	AllowTxtBlockingReport       types.Bool   `tfsdk:"allow_txt_blocking_report"`
 	BlockingBypassList           types.List   `tfsdk:"blocking_bypass_list"`
 	BlockingType                 types.String `tfsdk:"blocking_type"`
@@ -57,16 +57,16 @@ type ServerSettingsResourceModel struct {
 	CustomBlockingAddresses      types.List   `tfsdk:"custom_blocking_addresses"`
 	BlockListUrls                types.List   `tfsdk:"block_list_urls"`
 	BlockListUpdateIntervalHours types.Int64  `tfsdk:"block_list_update_interval_hours"`
-	ServeStale                  types.Bool   `tfsdk:"serve_stale"`
-	Forwarders                  types.List   `tfsdk:"forwarders"`
-	ForwarderProtocol           types.String `tfsdk:"forwarder_protocol"`
-	EnableDnsOverTls            types.Bool   `tfsdk:"enable_dns_over_tls"`
-	EnableDnsOverHttps          types.Bool   `tfsdk:"enable_dns_over_https"`
-	ZoneTransferAllowedNetworks types.List   `tfsdk:"zone_transfer_allowed_networks"`
-	NotifyAllowedNetworks       types.List   `tfsdk:"notify_allowed_networks"`
-	UdpPayloadSize              types.Int64  `tfsdk:"udp_payload_size"`
-	CacheMinimumRecordTtl       types.Int64  `tfsdk:"cache_minimum_record_ttl"`
-	CacheMaximumRecordTtl       types.Int64  `tfsdk:"cache_maximum_record_ttl"`
+	ServeStale                   types.Bool   `tfsdk:"serve_stale"`
+	Forwarders                   types.List   `tfsdk:"forwarders"`
+	ForwarderProtocol            types.String `tfsdk:"forwarder_protocol"`
+	EnableDnsOverTls             types.Bool   `tfsdk:"enable_dns_over_tls"`
+	EnableDnsOverHttps           types.Bool   `tfsdk:"enable_dns_over_https"`
+	ZoneTransferAllowedNetworks  types.List   `tfsdk:"zone_transfer_allowed_networks"`
+	NotifyAllowedNetworks        types.List   `tfsdk:"notify_allowed_networks"`
+	UdpPayloadSize               types.Int64  `tfsdk:"udp_payload_size"`
+	CacheMinimumRecordTtl        types.Int64  `tfsdk:"cache_minimum_record_ttl"`
+	CacheMaximumRecordTtl        types.Int64  `tfsdk:"cache_maximum_record_ttl"`
 	// Computed
 	Version types.String `tfsdk:"version"`
 	Uptime  types.String `tfsdk:"uptime"`

@@ -1,0 +1,77 @@
+// Devcontainer for terraform-provider-technitium.
+//
+// Design notes:
+//  * Base image is Debian 13 (trixie).
+//  * Privileged + host networking so the docker-in-docker daemon can run the
+//    Technitium acceptance-test containers (docker-compose.test*.yml) and
+//    their published ports (5380 HTTP / 5443 HTTPS) land directly on
+//    127.0.0.1, exactly as the GNUmakefile targets expect.
+//  * Docker-in-docker (rather than mounting the host socket) keeps the
+//    compose bind mounts (./.testdata, ./testdata/tls) resolving against the
+//    container's own filesystem, so `make testacc-up[-tls]` works unmodified.
+//  * Claude Code is installed via the native standalone-binary installer (no
+//    Node.js) and reuses the host credentials/state through the ~/.claude and
+//    ~/.claude.json bind mounts.
+{
+  "name": "terraform-provider-technitium",
+  "image": "mcr.microsoft.com/devcontainers/base:trixie",
+
+  "runArgs": [
+    "--privileged",
+    "--network=host"
+  ],
+
+  "features": {
+    // Go toolchain — go.mod requires go 1.26.x.
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.26"
+    },
+    // Terraform CLI for examples / manual provider testing.
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "latest"
+    },
+    // Inner Docker daemon for the acceptance-test compose stacks.
+    // moby=false: Debian trixie has no moby-cli packages, so Docker CE is
+    // installed from download.docker.com instead.
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": false,
+      "dockerDashComposeVersion": "v2"
+    }
+  },
+
+  // Reuse the local machine's Claude Code credentials and settings.
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
+    "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind"
+  ],
+
+  "remoteUser": "vscode",
+
+  // make: GNUmakefile targets; curl/python3: scripts/test-token-bootstrap.sh.
+  // golangci-lint is pinned to the same version CI uses (.github/workflows/test.yml).
+  // Claude Code is installed via the native (standalone binary) installer —
+  // deliberately NOT the npm package or the devcontainer feature, both of
+  // which would pull Node.js into the image.
+  // Finally, pre-warm the Go module cache.
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends make curl python3 ca-certificates && curl -fsSL https://claude.ai/install.sh | bash && go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 && go mod download",
+
+  // The DinD entrypoint starts dockerd with whatever iptables flavor the
+  // image defaults to (legacy). On hosts whose kernel ships nftables-only
+  // (e.g. NixOS), the legacy NAT table doesn't exist and dockerd dies at
+  // boot. Switch the container to iptables-nft and re-run the feature's
+  // init script on every start.
+  "postStartCommand": "sudo update-alternatives --set iptables /usr/sbin/iptables-nft && sudo update-alternatives --set ip6tables /usr/sbin/ip6tables-nft && sudo bash /usr/local/share/docker-init.sh true",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "hashicorp.terraform",
+        "anthropic.claude-code"
+      ],
+      "settings": {
+        "go.toolsManagement.autoUpdate": true
+      }
+    }
+  }
+}

@@ -350,9 +350,9 @@ func TestNewClient_CACertDir_Valid(t *testing.T) {
 	}
 
 	c, err := NewClient(ClientConfig{
-		BaseURL:    "https://localhost:5380",
-		Token:      "test-token",
-		CACertDir:  dir,
+		BaseURL:   "https://localhost:5380",
+		Token:     "test-token",
+		CACertDir: dir,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

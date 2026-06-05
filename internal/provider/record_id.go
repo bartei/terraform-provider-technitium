@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/bartei/terraform-provider-technitium/internal/client"
 )
 
 const recordIDSeparator = "::"

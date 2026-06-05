@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/client"
-	"github.com/darkhonor/terraform-provider-technitium/internal/provider/validators"
+	"github.com/bartei/terraform-provider-technitium/internal/client"
+	"github.com/bartei/terraform-provider-technitium/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"

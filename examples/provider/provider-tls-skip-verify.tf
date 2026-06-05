@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     technitium = {
-      source = "registry.terraform.io/darkhonor/technitium"
+      source = "registry.terraform.io/bartei/technitium"
     }
   }
 }

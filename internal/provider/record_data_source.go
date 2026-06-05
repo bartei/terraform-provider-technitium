@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/bartei/terraform-provider-technitium/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -24,13 +24,13 @@ type RecordDataSource struct {
 }
 
 type RecordDataSourceModel struct {
-	ID       types.String          `tfsdk:"id"`
-	Zone     types.String          `tfsdk:"zone"`
-	Name     types.String          `tfsdk:"name"`
-	Type     types.String          `tfsdk:"type"`
-	Value    types.String          `tfsdk:"value"`
-	TTL      types.Int64           `tfsdk:"ttl"`
-	Records  []RecordDataItemModel `tfsdk:"records"`
+	ID      types.String          `tfsdk:"id"`
+	Zone    types.String          `tfsdk:"zone"`
+	Name    types.String          `tfsdk:"name"`
+	Type    types.String          `tfsdk:"type"`
+	Value   types.String          `tfsdk:"value"`
+	TTL     types.Int64           `tfsdk:"ttl"`
+	Records []RecordDataItemModel `tfsdk:"records"`
 }
 
 type RecordDataItemModel struct {

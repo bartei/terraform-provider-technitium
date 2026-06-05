@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/darkhonor/terraform-provider-technitium/internal/client"
+	"github.com/bartei/terraform-provider-technitium/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -24,17 +24,17 @@ type ServerSettingsDataSource struct {
 }
 
 type ServerSettingsDataSourceModel struct {
-	ID                          types.String `tfsdk:"id"`
-	Version                     types.String `tfsdk:"version"`
-	Uptime                      types.String `tfsdk:"uptime"`
-	DnssecValidation            types.Bool   `tfsdk:"dnssec_validation"`
-	Recursion                   types.String `tfsdk:"recursion"`
-	QnameMinimization           types.Bool   `tfsdk:"qname_minimization"`
-	RandomizeName               types.Bool   `tfsdk:"randomize_name"`
-	LogQueries                  types.Bool   `tfsdk:"log_queries"`
-	LoggingType                 types.String `tfsdk:"logging_type"`
-	MaxLogFileDays              types.Int64  `tfsdk:"max_log_file_days"`
-	EnableBlocking              types.Bool   `tfsdk:"enable_blocking"`
+	ID                           types.String `tfsdk:"id"`
+	Version                      types.String `tfsdk:"version"`
+	Uptime                       types.String `tfsdk:"uptime"`
+	DnssecValidation             types.Bool   `tfsdk:"dnssec_validation"`
+	Recursion                    types.String `tfsdk:"recursion"`
+	QnameMinimization            types.Bool   `tfsdk:"qname_minimization"`
+	RandomizeName                types.Bool   `tfsdk:"randomize_name"`
+	LogQueries                   types.Bool   `tfsdk:"log_queries"`
+	LoggingType                  types.String `tfsdk:"logging_type"`
+	MaxLogFileDays               types.Int64  `tfsdk:"max_log_file_days"`
+	EnableBlocking               types.Bool   `tfsdk:"enable_blocking"`
 	AllowTxtBlockingReport       types.Bool   `tfsdk:"allow_txt_blocking_report"`
 	BlockingBypassList           types.List   `tfsdk:"blocking_bypass_list"`
 	BlockingType                 types.String `tfsdk:"blocking_type"`
@@ -42,13 +42,13 @@ type ServerSettingsDataSourceModel struct {
 	CustomBlockingAddresses      types.List   `tfsdk:"custom_blocking_addresses"`
 	BlockListUrls                types.List   `tfsdk:"block_list_urls"`
 	BlockListUpdateIntervalHours types.Int64  `tfsdk:"block_list_update_interval_hours"`
-	ServeStale                  types.Bool   `tfsdk:"serve_stale"`
-	ForwarderProtocol           types.String `tfsdk:"forwarder_protocol"`
-	EnableDnsOverTls            types.Bool   `tfsdk:"enable_dns_over_tls"`
-	EnableDnsOverHttps          types.Bool   `tfsdk:"enable_dns_over_https"`
-	UdpPayloadSize              types.Int64  `tfsdk:"udp_payload_size"`
-	CacheMinimumRecordTtl       types.Int64  `tfsdk:"cache_minimum_record_ttl"`
-	CacheMaximumRecordTtl       types.Int64  `tfsdk:"cache_maximum_record_ttl"`
+	ServeStale                   types.Bool   `tfsdk:"serve_stale"`
+	ForwarderProtocol            types.String `tfsdk:"forwarder_protocol"`
+	EnableDnsOverTls             types.Bool   `tfsdk:"enable_dns_over_tls"`
+	EnableDnsOverHttps           types.Bool   `tfsdk:"enable_dns_over_https"`
+	UdpPayloadSize               types.Int64  `tfsdk:"udp_payload_size"`
+	CacheMinimumRecordTtl        types.Int64  `tfsdk:"cache_minimum_record_ttl"`
+	CacheMaximumRecordTtl        types.Int64  `tfsdk:"cache_maximum_record_ttl"`
 }
 
 func (d *ServerSettingsDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -59,16 +59,16 @@ func (d *ServerSettingsDataSource) Schema(_ context.Context, _ datasource.Schema
 	resp.Schema = schema.Schema{
 		Description: "Reads current Technitium DNS Server settings for compliance auditing.",
 		Attributes: map[string]schema.Attribute{
-			"id":                     schema.StringAttribute{Computed: true, Description: "Fixed identifier."},
-			"version":                schema.StringAttribute{Computed: true, Description: "Server version."},
-			"uptime":                 schema.StringAttribute{Computed: true, Description: "Server uptime timestamp."},
-			"dnssec_validation":      schema.BoolAttribute{Computed: true, Description: "DNSSEC validation enabled."},
-			"recursion":              schema.StringAttribute{Computed: true, Description: "Recursion policy."},
-			"qname_minimization":     schema.BoolAttribute{Computed: true, Description: "QNAME minimization enabled."},
-			"randomize_name":         schema.BoolAttribute{Computed: true, Description: "Query name randomization enabled."},
-			"log_queries":            schema.BoolAttribute{Computed: true, Description: "Query logging enabled."},
-			"logging_type":           schema.StringAttribute{Computed: true, Description: "Logging output type."},
-			"max_log_file_days":      schema.Int64Attribute{Computed: true, Description: "Max log retention days."},
+			"id":                               schema.StringAttribute{Computed: true, Description: "Fixed identifier."},
+			"version":                          schema.StringAttribute{Computed: true, Description: "Server version."},
+			"uptime":                           schema.StringAttribute{Computed: true, Description: "Server uptime timestamp."},
+			"dnssec_validation":                schema.BoolAttribute{Computed: true, Description: "DNSSEC validation enabled."},
+			"recursion":                        schema.StringAttribute{Computed: true, Description: "Recursion policy."},
+			"qname_minimization":               schema.BoolAttribute{Computed: true, Description: "QNAME minimization enabled."},
+			"randomize_name":                   schema.BoolAttribute{Computed: true, Description: "Query name randomization enabled."},
+			"log_queries":                      schema.BoolAttribute{Computed: true, Description: "Query logging enabled."},
+			"logging_type":                     schema.StringAttribute{Computed: true, Description: "Logging output type."},
+			"max_log_file_days":                schema.Int64Attribute{Computed: true, Description: "Max log retention days."},
 			"enable_blocking":                  schema.BoolAttribute{Computed: true, Description: "DNS blocking enabled."},
 			"allow_txt_blocking_report":        schema.BoolAttribute{Computed: true, Description: "TXT blocking report queries allowed."},
 			"blocking_bypass_list":             schema.ListAttribute{Computed: true, ElementType: types.StringType, Description: "Domains/networks that bypass blocking."},
@@ -77,13 +77,13 @@ func (d *ServerSettingsDataSource) Schema(_ context.Context, _ datasource.Schema
 			"custom_blocking_addresses":        schema.ListAttribute{Computed: true, ElementType: types.StringType, Description: "Custom IPs returned for blocked queries."},
 			"block_list_urls":                  schema.ListAttribute{Computed: true, ElementType: types.StringType, Description: "Block list feed URLs."},
 			"block_list_update_interval_hours": schema.Int64Attribute{Computed: true, Description: "Hours between block list updates."},
-			"serve_stale":            schema.BoolAttribute{Computed: true, Description: "Serve stale records enabled."},
-			"forwarder_protocol":     schema.StringAttribute{Computed: true, Description: "Forwarder protocol."},
-			"enable_dns_over_tls":    schema.BoolAttribute{Computed: true, Description: "DNS-over-TLS enabled."},
-			"enable_dns_over_https":  schema.BoolAttribute{Computed: true, Description: "DNS-over-HTTPS enabled."},
-			"udp_payload_size":       schema.Int64Attribute{Computed: true, Description: "EDNS UDP payload size."},
-			"cache_minimum_record_ttl": schema.Int64Attribute{Computed: true, Description: "Minimum cache TTL."},
-			"cache_maximum_record_ttl": schema.Int64Attribute{Computed: true, Description: "Maximum cache TTL."},
+			"serve_stale":                      schema.BoolAttribute{Computed: true, Description: "Serve stale records enabled."},
+			"forwarder_protocol":               schema.StringAttribute{Computed: true, Description: "Forwarder protocol."},
+			"enable_dns_over_tls":              schema.BoolAttribute{Computed: true, Description: "DNS-over-TLS enabled."},
+			"enable_dns_over_https":            schema.BoolAttribute{Computed: true, Description: "DNS-over-HTTPS enabled."},
+			"udp_payload_size":                 schema.Int64Attribute{Computed: true, Description: "EDNS UDP payload size."},
+			"cache_minimum_record_ttl":         schema.Int64Attribute{Computed: true, Description: "Minimum cache TTL."},
+			"cache_maximum_record_ttl":         schema.Int64Attribute{Computed: true, Description: "Maximum cache TTL."},
 		},
 	}
 }
