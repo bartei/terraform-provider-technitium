@@ -4,11 +4,14 @@
 package provider
 
 import (
+	"strings"
+
 	"context"
 	"fmt"
 
 	"github.com/bartei/terraform-provider-technitium/internal/client"
 	"github.com/hashicorp/go-uuid"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -17,7 +20,10 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &BlockedZonesResource{}
+var (
+	_ resource.Resource                = &BlockedZonesResource{}
+	_ resource.ResourceWithImportState = &BlockedZonesResource{}
+)
 
 func NewBlockedZonesResource() resource.Resource {
 	return &BlockedZonesResource{}
@@ -192,4 +198,36 @@ func (r *BlockedZonesResource) Delete(ctx context.Context, req resource.DeleteRe
 			return
 		}
 	}
+}
+
+// ImportState imports an existing set of blocked zone entries. The import ID is
+// a comma-separated list of the domains this resource should manage (the
+// server-side list has no per-set identity, so the operator declares the
+// membership). A fresh random UUID is generated for the resource id.
+func (r *BlockedZonesResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	var domains []string
+	for _, d := range strings.Split(req.ID, ",") {
+		if d = strings.TrimSpace(d); d != "" {
+			domains = append(domains, d)
+		}
+	}
+	if len(domains) == 0 {
+		resp.Diagnostics.AddError("Invalid import ID",
+			"Expected a comma-separated list of domains, e.g. \"ads.example.com,tracker.example.net\".")
+		return
+	}
+
+	id, err := uuid.GenerateUUID()
+	if err != nil {
+		resp.Diagnostics.AddError("Error generating resource ID", err.Error())
+		return
+	}
+
+	domainSet, diags := types.SetValueFrom(ctx, types.StringType, domains)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("domains"), domainSet)...)
 }

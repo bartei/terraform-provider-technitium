@@ -31,6 +31,6 @@ API surface: `/api/dhcp/scopes/{list,get,set,enable,disable,delete,addReservedLe
 
 ## 3. Test coverage
 
-- [ ] **`internal/client` unit tests — biggest gap**. `blocked.go`/`allowed.go` export paths now covered (`blocked_test.go`); still no tests for `zones.go`, `records.go`, `settings.go`, `tsig.go`. Highest value: TSIG pipe-delimiter validation, idempotent-delete logic. Use `httptest` servers.
-- [ ] **Acceptance tests for untested data sources** — `record`, `tsig_key`, `server_settings` (zone data source is covered in `zone_resource_test.go`).
-- [ ] **`allowed_zones`/`blocked_zones` resources are not importable** — neither implements `ImportState` (singular variants do). Implement or document the limitation.
+- [x] **`internal/client` unit tests** — done: 45 new tests across `zones_test.go`, `records_test.go`, `settings_test.go`, `tsig_test.go` (TSIG pipe-delimiter validation, idempotent delete, wire formats, DNSSEC paths). Package coverage 26% → 80.7%.
+- [x] **Acceptance tests for data sources** — already existed inside the resource test files (`TestAccRecordDataSource`, `TestAccTSIGKeyDataSource_basic`, `TestAccServerSettingsDataSource`); the original review missed them because there are no dedicated `*_data_source_test.go` files. Verified green.
+- [x] **`allowed_zones`/`blocked_zones` import** — done: `ImportState` takes a comma-separated domain list (the server-side list has no per-set identity) and generates a fresh UUID id; import acceptance steps added to both basic tests.

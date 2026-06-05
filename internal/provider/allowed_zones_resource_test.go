@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccAllowedZonesResource_basic(t *testing.T) {
@@ -32,6 +33,24 @@ func TestAccAllowedZonesResource_basic(t *testing.T) {
 					resource.TestCheckTypeSetElemAttr("technitium_allowed_zones.test", "domains.*", "acc-az-set3.example.com"),
 					resource.TestCheckResourceAttrSet("technitium_allowed_zones.test", "id"),
 				),
+			},
+			// Import: ID is the comma-separated domain list; the generated
+			// UUID id necessarily differs from the original.
+			{
+				ResourceName:  "technitium_allowed_zones.test",
+				ImportState:   true,
+				ImportStateId: "acc-az-set1.example.com,acc-az-set2.example.com,acc-az-set3.example.com",
+				// ImportStateVerify matches by id, which is a fresh UUID on
+				// import; check the imported attributes directly instead.
+				ImportStateCheck: func(states []*terraform.InstanceState) error {
+					if len(states) != 1 {
+						return fmt.Errorf("expected 1 imported state, got %d", len(states))
+					}
+					if got := states[0].Attributes["domains.#"]; got != "3" {
+						return fmt.Errorf("expected 3 imported domains, got %s", got)
+					}
+					return nil
+				},
 			},
 		},
 	})
