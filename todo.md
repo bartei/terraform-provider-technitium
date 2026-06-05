@@ -17,17 +17,17 @@ TLS acceptance suite green. Items ordered by priority within each section.
 
 API surface: `/api/dhcp/scopes/{list,get,set,enable,disable,delete,addReservedLease,removeReservedLease}`, `/api/dhcp/leases/{list,remove,convertToReserved,convertToDynamic}` (see `docs/technitium-apidocs.md`).
 
-- [ ] Client layer: `internal/client/dhcp.go` — scope get/set/list/enable/disable/delete + reserved lease add/remove + leases list/remove/convert, with `httptest` unit tests
-- [ ] Resource `technitium_dhcp_scope` — full schema (address range, subnet mask, lease time, offer delay, ping check, domain/search list, DNS updates/TTL, boot/TFTP/server options, router, DNS/WINS/NTP servers, static routes, exclusions, vendor info, CAPWAP, generic options, `allow_only_reserved_leases`, MAC-filtering flags) with `enabled` flag mapped to enable/disable endpoints
-- [ ] Resource `technitium_dhcp_scope`: rename support (scope name is the API identifier — decide RequiresReplace vs `newName` param) + `ImportState`
-- [ ] Resource `technitium_dhcp_reserved_lease` — standalone reservation (scope, MAC, IP, hostname, comments) via addReservedLease/removeReservedLease; define conflict semantics vs inline scope `reserved_leases`
-- [ ] Data source `technitium_dhcp_scope` (single) and `technitium_dhcp_scopes` (list)
-- [ ] Data source `technitium_dhcp_leases` — runtime lease table (address, MAC, hostname, type, expiry)
-- [ ] Input validation: MAC address format, IPv4 range ordering (start <= end), exclusion ranges inside scope range, static-route triplets (extend `inputvalidation/`)
-- [ ] Register all new resources/data sources in `provider.go`
-- [ ] Examples (`examples/resources/technitium_dhcp_*`) + doc templates + `make generate`
-- [ ] E2E acceptance tests: scope lifecycle (create → read → update → enable/disable → import → delete), reserved lease add/remove + convert flows, scopes/leases data sources — green in both HTTP (`make testacc-up`) and TLS (`make testacc-up-tls`) suites
-- [ ] Verify the docker test container accepts scope config without a bindable interface for the scope range (config-only tests; DHCP port 67/udp not required) — adjust compose if not
+- [x] Client layer: `internal/client/dhcp.go` — scope get/set/list/enable/disable/delete + reserved lease add/remove + leases list/remove/convert, with `httptest` unit tests
+- [x] Resource `technitium_dhcp_scope` — full schema (address range, subnet mask, lease time, offer delay, ping check, domain/search list, DNS updates/TTL, boot/TFTP/server options, router, DNS/WINS/NTP servers, static routes, exclusions, vendor info, CAPWAP, generic options, `allow_only_reserved_leases`, MAC-filtering flags) with `enabled` flag mapped to enable/disable endpoints
+- [x] Resource `technitium_dhcp_scope`: rename support (in-place via `newName`; id recomputed) + `ImportState`
+- [x] Resource `technitium_dhcp_reserved_lease` — standalone reservation (scope, MAC, IP, hostname, comments) via addReservedLease/removeReservedLease; define conflict semantics vs inline scope `reserved_leases`
+- [x] Data source `technitium_dhcp_scope` (single) and `technitium_dhcp_scopes` (list)
+- [x] Data source `technitium_dhcp_leases` — runtime lease table (address, MAC, hostname, type, expiry)
+- [x] Input validation (ValidateConfig on both resources): MAC address format, IPv4 range ordering (start <= end), exclusion ranges inside scope range, static-route triplets
+- [x] Register all new resources/data sources in `provider.go`
+- [x] Examples (`examples/resources|data-sources/technitium_dhcp_*`) + generated docs (`make docs`)
+- [x] E2E acceptance tests: scope lifecycle (create → read → update → enable/disable → import → delete), reserved lease add/remove + convert flows, scopes/leases data sources — green in both HTTP (`make testacc-up`) and TLS (`make testacc-up-tls`) suites
+- [x] Verify the docker test container accepts scope config without a bindable interface for the scope range (config-only tests; DHCP port 67/udp not required) — confirmed: no compose changes needed (server even auto-enables new scopes; the resource reconciles to the planned enabled state)
 
 ## 3. Test coverage
 
