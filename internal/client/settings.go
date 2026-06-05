@@ -62,7 +62,7 @@ type ServerSettings struct {
 
 // SettingsGet returns the current server settings.
 func (c *Client) SettingsGet(ctx context.Context) (*ServerSettings, error) {
-	resp, err := c.doGet(ctx, "/api/settings/get", nil)
+	resp, err := c.do(ctx, "/api/settings/get", nil)
 	if err != nil {
 		return nil, fmt.Errorf("getting server settings: %w", err)
 	}
@@ -82,7 +82,7 @@ func (c *Client) SettingsSet(ctx context.Context, params map[string]string) erro
 		qp.Set(k, v)
 	}
 
-	_, err := c.doPost(ctx, "/api/settings/set", qp)
+	_, err := c.do(ctx, "/api/settings/set", qp)
 	if err != nil {
 		return fmt.Errorf("updating server settings: %w", err)
 	}

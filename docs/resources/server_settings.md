@@ -11,8 +11,6 @@ Manages Technitium DNS Server global settings.
 
 ~> **Singleton resource:** Only one instance of this resource may exist per provider configuration. The resource ID is always `"server-settings"`. Attempting to declare a second instance will produce a conflict in state.
 
-~> **DoD / IC environments:** This resource enforces multiple STIG controls when `stig_compliance` is enabled on the provider. Relevant controls include **DNS-REQ-004** through **DNS-REQ-016** and **DNS-REQ-028**. See the [STIG Compliance Guide](../guides/stig-compliance.md) for a full walkthrough.
-
 ## Example Usage
 
 ### Basic Configuration
@@ -25,10 +23,10 @@ resource "technitium_server_settings" "main" {
 }
 ```
 
-### STIG-Hardened
+### Hardened
 
 ```hcl
-resource "technitium_server_settings" "stig" {
+resource "technitium_server_settings" "hardened" {
   # DNS Resolution (DNS-REQ-005, DNS-REQ-006, DNS-REQ-014, DNS-REQ-015)
   dnssec_validation  = true
   recursion          = "AllowOnlyForPrivateNetworks"
@@ -53,35 +51,6 @@ resource "technitium_server_settings" "stig" {
 }
 ```
 
-### NSS-Hardened
-
-```hcl
-resource "technitium_server_settings" "nss" {
-  # DNS Resolution — locked down for classified environments
-  dnssec_validation  = true
-  recursion          = "Deny"
-  qname_minimization = true
-  randomize_name     = true
-
-  # Logging — maximum retention
-  log_queries       = true
-  logging_type      = "FileAndConsole"
-  max_log_file_days = 365
-
-  # Forwarding — US government-controlled resolvers only
-  forwarders         = var.approved_forwarders
-  forwarder_protocol = "Tls"
-
-  # Encrypted transport
-  enable_dns_over_tls   = true
-  enable_dns_over_https = true
-
-  # Strict zone transfer controls
-  zone_transfer_allowed_networks = var.authorized_networks
-  notify_allowed_networks        = var.authorized_networks
-}
-```
-
 ### DNS Forwarding
 
 ```hcl
@@ -99,23 +68,23 @@ resource "technitium_server_settings" "forwarding" {
 
 ### DNS Resolution
 
-* `dnssec_validation` - (Optional, Boolean) Enable DNSSEC validation. STIG BIND-9X-001650 (SC-21). Default: `true`.
+* `dnssec_validation` - (Optional, Boolean) Enable DNSSEC validation. Default: `true`.
 
-* `recursion` - (Optional, String) Recursion policy. STIG BIND-9X-001380 (SC-5). Valid values: `Allow`, `Deny`, `AllowOnlyForPrivateNetworks`, `UseSpecifiedNetworkACL`. Default: `"AllowOnlyForPrivateNetworks"`.
+* `recursion` - (Optional, String) Recursion policy. Valid values: `Allow`, `Deny`, `AllowOnlyForPrivateNetworks`, `UseSpecifiedNetworkACL`. Default: `"AllowOnlyForPrivateNetworks"`.
 
-* `recursion_network_acl` - (Optional, List of String) Network ACL for recursion when `recursion` is set to `UseSpecifiedNetworkACL`. STIG BIND-9X-001740 (SC-5).
+* `recursion_network_acl` - (Optional, List of String) Network ACL for recursion when `recursion` is set to `UseSpecifiedNetworkACL`.
 
-* `qname_minimization` - (Optional, Boolean) Enable QNAME minimization to reduce information leakage. STIG BIND-9X-002440 (CM-6). Default: `true`.
+* `qname_minimization` - (Optional, Boolean) Enable QNAME minimization to reduce information leakage. Default: `true`.
 
-* `randomize_name` - (Optional, Boolean) Randomize query name case (0x20 encoding) to harden against spoofing. STIG BIND-9X-001490 (CM-6). Default: `true`.
+* `randomize_name` - (Optional, Boolean) Randomize query name case (0x20 encoding) to harden against spoofing. Default: `true`.
 
 ### Logging
 
-* `log_queries` - (Optional, Boolean) Enable query logging. STIG BIND-9X-001110 (AU-12). Default: `true`.
+* `log_queries` - (Optional, Boolean) Enable query logging. Default: `true`.
 
-* `logging_type` - (Optional, String) Logging output type. STIG BIND-9X-001900 (AU-4). Valid values: `None`, `File`, `Console`, `FileAndConsole`. Default: `"FileAndConsole"`.
+* `logging_type` - (Optional, String) Logging output type. Valid values: `None`, `File`, `Console`, `FileAndConsole`. Default: `"FileAndConsole"`.
 
-* `max_log_file_days` - (Optional, Integer) Maximum number of days to retain log files. STIG BIND-9X-001890 (AU-4). Default: `365`.
+* `max_log_file_days` - (Optional, Integer) Maximum number of days to retain log files. Default: `365`.
 
 ### Blocking
 
@@ -137,23 +106,23 @@ resource "technitium_server_settings" "forwarding" {
 
 ### Forwarding
 
-* `forwarders` - (Optional, List of String) Forwarder addresses. STIG BIND-9X-001360 (SC-20).
+* `forwarders` - (Optional, List of String) Forwarder addresses.
 
-* `forwarder_protocol` - (Optional, String) Forwarder transport protocol. STIG SC-8. Valid values: `Udp`, `Tcp`, `Tls`, `Https`, `Quic`. Default: `"Tls"`.
+* `forwarder_protocol` - (Optional, String) Forwarder transport protocol. Valid values: `Udp`, `Tcp`, `Tls`, `Https`, `Quic`. Default: `"Tls"`.
 
 * `serve_stale` - (Optional, Boolean) Serve stale cached records when upstream resolvers are unavailable. Default: `true`.
 
 ### Encrypted Transport
 
-* `enable_dns_over_tls` - (Optional, Boolean) Enable DNS-over-TLS listener. STIG SC-8. Default: `false`.
+* `enable_dns_over_tls` - (Optional, Boolean) Enable DNS-over-TLS listener. Default: `false`.
 
-* `enable_dns_over_https` - (Optional, Boolean) Enable DNS-over-HTTPS listener. STIG SC-8. Default: `false`.
+* `enable_dns_over_https` - (Optional, Boolean) Enable DNS-over-HTTPS listener. Default: `false`.
 
 ### Zone Transfer
 
-* `zone_transfer_allowed_networks` - (Optional, List of String) Networks allowed to perform zone transfers. STIG BIND-9X-001010 (AC-10).
+* `zone_transfer_allowed_networks` - (Optional, List of String) Networks allowed to perform zone transfers.
 
-* `notify_allowed_networks` - (Optional, List of String) Networks allowed to send NOTIFY messages. STIG BIND-9X-001390 (SC-20).
+* `notify_allowed_networks` - (Optional, List of String) Networks allowed to send NOTIFY messages.
 
 ### Cache
 

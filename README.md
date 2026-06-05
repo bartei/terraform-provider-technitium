@@ -16,38 +16,6 @@ through Terraform. Define zones, records, TSIG keys, DNSSEC configuration, catal
 membership, and server-wide settings in declarative HCL, then plan, review, and apply
 changes with the same workflow you use for every other piece of your infrastructure.
 
-What sets this provider apart is its embedded [DISA STIG](https://www.cyber.mil/stigs)
-compliance validation with full [NIST SP 800-53 Rev. 5](https://csrc.nist.gov/pubs/sp/800-53/r5/upd1/final)
-traceability. Twenty-eight DNS security requirements are evaluated at `terraform validate`
-and `terraform plan` time, catching misconfigurations before they reach your DNS server.
-
-**Supported STIGs:**
-
-| STIG | Version | Library Release Date |
-|---|---|---|
-| [BIND 9.x STIG](https://www.cyber.mil/stigs) | V3R2 | 2026-04-01 |
-| [Windows Server 2022 DNS STIG](https://www.cyber.mil/stigs) | V2R4 | 2026-04-01 |
-
-Dates are the release dates published in the
-[DISA STIG Public Library](https://public.cyber.mil/stigs/downloads/)
-archive metadata at the time of the corresponding provider release.
-
-## Why use Terraform with Technitium?
-
-**Already managing infrastructure as code?** Define your DNS zones, records, DNSSEC,
-TSIG keys, and server-wide settings alongside the rest of your stack — Kubernetes manifests,
-cloud resources, container deployments — in the same `terraform apply` lifecycle.
-
-**New to infrastructure as code?** The embedded STIG validators catch DNS misconfigurations
-at `terraform plan` time, before they reach your server. Each finding includes the STIG
-Rule ID, severity, and mapped NIST SP 800-53 control — you see the problem with the fix
-attached, not after the next audit.
-
-**Running multiple Technitium nodes?** The `technitium_catalog_membership` resource
-(new in v1.2) declaratively manages [RFC 9432](https://datatracker.ietf.org/doc/rfc9432/)
-catalog zone membership so secondary name servers automatically provision member zones —
-no per-secondary manual configuration.
-
 ## Features
 
 - DNS zone management (Primary, Secondary, Stub, Forwarder)
@@ -57,19 +25,10 @@ no per-secondary manual configuration.
 - **Catalog zone membership ([RFC 9432](https://datatracker.ietf.org/doc/rfc9432/)) for multi-server deployments**
 - Server-wide DNS settings
 - Domain blocking and allowing
-- Built-in DISA STIG compliance validation (28 DNS security requirements)
-- [NIST SP 800-53 Rev. 5](https://csrc.nist.gov/pubs/sp/800-53/r5/upd1/final) control traceability and baseline categorization
-- NSS/[CNSSI 1253](https://www.cnss.gov/CNSS/issuances/Instructions.cfm) support for classified environments
 - TLS configuration with custom CA support and environment variable fallbacks
 - Client-side DNS record input validation
 
 ## Quick Start
-
-### Homelab quick start
-
-Running Technitium on your home network over HTTP, just want IaC-managed records?
-Start here. Findings show in plan output but do not block `apply` until you decide
-to harden:
 
 ```hcl
 terraform {
@@ -84,11 +43,6 @@ terraform {
 provider "technitium" {
   server_url = "http://192.168.1.10:5380"
   api_token  = var.technitium_api_token
-
-  stig_compliance {
-    enabled     = true
-    enforcement = "warn" # findings appear in plan output but do not block apply
-  }
 }
 
 resource "technitium_zone" "homelab" {
@@ -104,13 +58,9 @@ resource "technitium_record" "nas" {
 }
 ```
 
-When you're ready to harden — add `notify`, `allow_transfer`, DNSSEC, switch to
-HTTPS, and drop the `enforcement = "warn"` line. The findings you saw earlier
-become the checklist.
+### Hardened deployment
 
-### Production / hardened deployment
-
-HTTPS-enabled Technitium, strict STIG enforcement, custom CA for an internal PKI:
+HTTPS-enabled Technitium with a custom CA for an internal PKI:
 
 ```hcl
 provider "technitium" {
@@ -120,12 +70,6 @@ provider "technitium" {
   ca_cert_file    = "/etc/ssl/certs/internal-ca.pem"
   tls_server_name = "dns.example.com"
   tls_min_version = "1.3"
-
-  # strict mode is the default — included here for clarity
-  stig_compliance {
-    enabled     = true
-    enforcement = "strict"
-  }
 }
 
 resource "technitium_zone" "example" {
@@ -199,7 +143,6 @@ native HTTP API and exposes the full administrative surface, not just the record
 | Catalog zone membership ([RFC 9432](https://datatracker.ietf.org/doc/rfc9432/)) | no | yes (`technitium_catalog_membership`) |
 | Server-wide settings (blocking, forwarding) | no | yes (`technitium_server_settings`) |
 | Authentication | TSIG ([RFC 2845](https://datatracker.ietf.org/doc/rfc2845/)) shared secret, OR GSS-TSIG ([RFC 3645](https://datatracker.ietf.org/doc/rfc3645/)) for Kerberos / Active Directory | Per-user API token (revocable, scoped) |
-| Embedded STIG compliance validation | no | yes (28 DNS security requirements) |
 | Provider-to-server transport | UDP/TCP on port 53 | HTTPS (REST API) |
 
 **Where `hashicorp/dns` is the better fit:** Active-Directory-integrated environments
@@ -210,41 +153,7 @@ authentication.
 
 **Where this provider is the better fit:** Technitium-only deployments where you want
 end-to-end management — zones, DNSSEC posture, TSIG keys, catalog membership, server
-settings, blocking, and the records themselves — in one declarative configuration,
-with STIG validation built in.
-
-## STIG Compliance
-
-This provider embeds 28 DNS security requirements derived from DISA STIGs and validates
-them at `terraform validate` and `terraform plan` time — no external tools or post-hoc
-scanning required. Every finding includes the STIG Rule ID, severity, and mapped
-NIST SP 800-53 Rev. 5 control for full audit traceability.
-
-Three enforcement modes are available:
-
-| Mode | Behavior |
-|---|---|
-| **strict** (default) | Errors block `terraform apply` |
-| **warn** | Warnings appear in plan output but do not block |
-| **silent** | All STIG diagnostics suppressed |
-
-If you do not need compliance enforcement on a specific deployment, set
-`enforcement = "warn"` to see findings without blocking, or `enforcement = "silent"`
-to suppress them entirely. The validators run only when `stig_compliance.enabled = true`.
-
-For classified environments, NSS mode maps controls to
-[CNSSI 1253](https://www.cnss.gov/CNSS/issuances/Instructions.cfm) baselines (Low,
-Moderate, High) and enforces only the requirements applicable to the selected
-categorization level.
-
-> **Upgrading from v1.1.x?** Two STIG validators (DNS-REQ-004 zone-transfer ACL,
-> DNS-REQ-016 notify addresses) were silently no-op in v1.0 and v1.1 and now
-> properly enforce. Strict-mode users running existing HCL without `notify` or
-> `allow_transfer` populated will see new findings on `terraform plan`. See the
-> [CHANGELOG Upgrade Notes](CHANGELOG.md) for remediation paths.
-
-For full details, see the [STIG Compliance Guide](docs/guides/stig-compliance.md) and
-the [DISA STIG Library](https://www.cyber.mil/stigs).
+settings, blocking, and the records themselves — in one declarative configuration.
 
 ## Requirements
 
@@ -284,7 +193,6 @@ make install
 ## Documentation
 
 - [Terraform Registry Documentation](https://registry.terraform.io/providers/bartei/technitium/latest/docs)
-- [STIG Compliance Guide](docs/guides/stig-compliance.md)
 - [Changelog](CHANGELOG.md)
 
 ## Development
@@ -334,10 +242,7 @@ make testacc-down
 
 #### TLS-mode acceptance suite
 
-The default `make testacc-up` runs the Technitium container with HTTP only on port `5380`,
-which is sufficient for most resource and data-source tests but blocks the NSS-mode and
-strict STIG-mode test families that require encrypted transport (DNS-REQ-028 / NIST SC-8).
-
+The default `make testacc-up` runs the Technitium container with HTTP only on port `5380`.
 The parallel `testacc-up-tls` target boots an HTTPS-enabled container and runs the full
 test suite against it:
 
@@ -352,11 +257,6 @@ mounts them into the Technitium container at `/etc/dns/tls/server.pfx`, and expo
 admin web service on `127.0.0.1:5443` over HTTPS. The provider trusts the test CA via the
 `TECHNITIUM_CACERT` environment variable. No private key material is ever committed.
 
-A few test helpers and direct-API helpers across the suite still hardcode the HTTP URL
-where they exist purely to test HTTP-failure or skip-TLS-verify behavior; those tests
-intentionally do not pick up the TLS overrides. The TLS path's primary value is unblocking
-the NSS-mode and STIG-strict test families that cannot run under HTTP at all.
-
 The TLS target sources `DNS_ADMIN_PASSWORD` from `.env.test` (falling back to `admin` to
 match `.env.test.example`). It does not require any production credential.
 
@@ -367,24 +267,7 @@ match `.env.test.example`). It does not require any production credential.
 > also reads from stdin, and sends the form body to curl via `--data @-` on a bash
 > heredoc. The credential value therefore does not appear in `/proc/PID/cmdline`
 > (`ps -ef`) or `/proc/PID/environ` (`ps eww`) of any process spawned during token
-> provisioning. Resolved in v1.2.0
-> ([#35](https://github.com/bartei/terraform-provider-technitium/issues/35)).
-
-CI runs `testacc-up-tls` automatically on every pull request.
-
-### FIPS Build
-
-Build with BoringCrypto for FIPS 140-2 compliance:
-
-```bash
-make build-fips
-```
-
-FIPS-mode tests are also available:
-
-```bash
-make test-fips
-```
+> provisioning.
 
 ### Generating Documentation
 

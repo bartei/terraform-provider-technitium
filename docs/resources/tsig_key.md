@@ -10,8 +10,6 @@ description: |-
 
 Manages TSIG keys for authenticated DNS server-to-server transactions (zone transfers, dynamic updates).
 
-~> **DoD / IC environments:** This resource enforces STIG controls when `stig_compliance` is enabled on the provider. Relevant controls include **DNS-REQ-002** (TSIG required for zone transfers) and **DNS-REQ-012** (FIPS-approved cryptographic algorithms). See the [STIG Compliance Guide](../guides/stig-compliance.md) for a full walkthrough.
-
 ~> **Sensitive state:** The `shared_secret` attribute is stored in the Terraform state file. Treat the state file as sensitive and restrict access accordingly.
 
 ## Example Usage
@@ -25,17 +23,6 @@ resource "technitium_tsig_key" "example" {
 }
 ```
 
-### NSS-Compliant TSIG Key
-
-```hcl
-# NSS mode restricts TSIG algorithms to FIPS-compliant options:
-# hmac-sha256, hmac-sha384, hmac-sha512
-resource "technitium_tsig_key" "nss" {
-  key_name  = "transfer.example.mil"
-  algorithm = "hmac-sha384"
-}
-```
-
 ## Argument Reference
 
 * `key_name` - (Required, String) TSIG key name. (Forces replacement.)
@@ -44,7 +31,6 @@ resource "technitium_tsig_key" "nss" {
 
 * `shared_secret` - (Optional, String, Sensitive, Computed) Base64-encoded shared secret. If omitted, the server generates one automatically.
 
-~> **NSS environments:** When `nss = true` on the provider, algorithms are restricted to FIPS-compliant options: `hmac-sha256`, `hmac-sha384`, `hmac-sha512`.
 
 ## Attributes Reference
 

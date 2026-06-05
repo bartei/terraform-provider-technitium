@@ -8,7 +8,7 @@ terraform {
 
 # HTTPS with TLS verification disabled
 # Use ONLY for development or HomeLab environments where certificate
-# management is not a priority. Not available when STIG compliance is enabled.
+# management is not a priority.
 provider "technitium" {
   server_url      = var.technitium_server_url
   api_token       = var.technitium_api_token

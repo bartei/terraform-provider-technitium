@@ -11,8 +11,6 @@ description: |-
 
 Manages a DNS zone on the Technitium DNS Server. Supports Primary, Secondary, Stub, and Forwarder zone types with optional DNSSEC signing and TSIG-authenticated zone transfers.
 
-~> **DoD / IC environments:** This resource enforces multiple STIG controls when `stig_compliance` is enabled on the provider. Relevant controls include **DNS-REQ-001** (DNSSEC signing), **DNS-REQ-002** (TSIG-authenticated zone transfers), **DNS-REQ-004** (zone transfer ACL), **DNS-REQ-011** (NSEC3 proof of non-existence), **DNS-REQ-012** (FIPS-approved cryptographic algorithms), and **DNS-REQ-016** (notify configuration). See the [STIG Compliance Guide](../guides/stig-compliance.md) for a full walkthrough.
-
 ## Example Usage
 
 ### Basic Primary Zone
@@ -56,34 +54,6 @@ resource "technitium_zone" "signed" {
 }
 ```
 
-### NSS-Compliant Zone
-
-```hcl
-resource "technitium_tsig_key" "nss_transfer" {
-  key_name  = "nss-transfer.example.mil"
-  algorithm = "hmac-sha384"
-}
-
-resource "technitium_zone" "nss" {
-  name = "example.mil"
-  type = "Primary"
-
-  dnssec {
-    enabled   = true
-    algorithm = "ECDSA"
-    curve     = "P384"
-    nx_proof  = "NSEC3"
-  }
-
-  zone_transfer_tsig_key_names = [
-    technitium_tsig_key.nss_transfer.key_name,
-  ]
-
-  notify         = ["10.0.1.2", "10.0.1.3"]
-  allow_transfer = ["10.0.1.2", "10.0.1.3"]
-}
-```
-
 ## Argument Reference
 
 * `name` - (Required, String) Domain name for the zone. (Forces replacement.)
@@ -112,7 +82,6 @@ The `dnssec` block supports the following arguments:
 
 * `curve` - (Optional, String) Elliptic curve for `ECDSA` (`P256`, `P384`) or `EDDSA` (`ED25519`, `ED448`). Default: `"P256"`.
 
-  -> **NSS environments:** When `nss = true` on the provider, `ECDSA` with `P256` is rejected. Use `P384` to comply with CNSSI 1253.
 
 * `nx_proof` - (Optional, String) Proof of non-existence mechanism. Valid values: `NSEC`, `NSEC3`. Default: `"NSEC3"`.
 

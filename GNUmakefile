@@ -150,9 +150,4 @@ lint:
 install:
 	go build -o ~/.terraform.d/plugins/registry.terraform.io/bartei/technitium/0.0.1/$$(go env GOOS)_$$(go env GOARCH)/terraform-provider-technitium
 
-generate-stig:
-	@echo "Generating STIG baselines..."
-	go run ./tools/generate_stig_baselines.go
-	@echo "Generated internal/provider/validators/stig_baselines_gen.go"
-
-.PHONY: build build-fips test test-fips testacc testacc-token testacc-up testacc-down testacc-tls-prep testacc-token-tls testacc-tls testacc-up-tls testacc-down-tls generate docs lint install generate-stig _testdata-preflight
+.PHONY: build build-fips test test-fips testacc testacc-token testacc-up testacc-down testacc-tls-prep testacc-token-tls testacc-tls testacc-up-tls testacc-down-tls generate docs lint install _testdata-preflight

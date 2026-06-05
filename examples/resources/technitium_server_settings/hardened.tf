@@ -1,4 +1,4 @@
-resource "technitium_server_settings" "stig" {
+resource "technitium_server_settings" "hardened" {
   # DNS Resolution (DNS-REQ-005, DNS-REQ-006, DNS-REQ-014, DNS-REQ-015)
   dnssec_validation  = true
   recursion          = "AllowOnlyForPrivateNetworks"

@@ -58,7 +58,7 @@ jobs:
 
       - name: Verify docs exist
         run: |
-          for f in docs/index.md docs/resources/zone.md docs/resources/record.md docs/data-sources/zone.md docs/guides/stig-compliance.md; do
+          for f in docs/index.md docs/resources/zone.md docs/resources/record.md docs/data-sources/zone.md; do
             if [ ! -f "$f" ]; then
               echo "Missing documentation: $f"
               exit 1

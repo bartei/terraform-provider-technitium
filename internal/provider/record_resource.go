@@ -10,7 +10,6 @@ import (
 
 	"github.com/bartei/terraform-provider-technitium/internal/client"
 	"github.com/bartei/terraform-provider-technitium/internal/provider/inputvalidation"
-	"github.com/bartei/terraform-provider-technitium/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -24,7 +23,6 @@ import (
 var (
 	_ resource.Resource                     = &RecordResource{}
 	_ resource.ResourceWithImportState      = &RecordResource{}
-	_ resource.ResourceWithModifyPlan       = &RecordResource{}
 	_ resource.ResourceWithConfigValidators = &RecordResource{}
 )
 
@@ -148,29 +146,10 @@ func (r *RecordResource) Configure(_ context.Context, req resource.ConfigureRequ
 	r.client = providerData.Client
 }
 
-func (r *RecordResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.Plan.Raw.IsNull() {
-		return // destroy plan
-	}
-	if r.providerData != nil && r.providerData.STIGEngine != nil {
-		r.providerData.STIGEngine.ValidatePlan(
-			ctx,
-			validators.ResourceRecord,
-			&validators.TFPlanAdapter{Plan: req.Plan},
-			&validators.TFStateAdapter{State: req.State},
-			&resp.Diagnostics,
-		)
-	}
-}
-
 func (r *RecordResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
-	cvs := []resource.ConfigValidator{
+	return []resource.ConfigValidator{
 		newInputConfigValidator(r.inputRegistry, inputvalidation.ResourceRecord),
 	}
-	if r.providerData != nil && r.providerData.STIGEngine != nil {
-		cvs = append(cvs, newSTIGConfigValidator(r.providerData.STIGEngine, validators.ResourceRecord))
-	}
-	return cvs
 }
 
 func (r *RecordResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

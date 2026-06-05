@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/bartei/terraform-provider-technitium/internal/client"
-	"github.com/bartei/terraform-provider-technitium/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -24,10 +23,8 @@ import (
 )
 
 var (
-	_ resource.Resource                     = &ServerSettingsResource{}
-	_ resource.ResourceWithImportState      = &ServerSettingsResource{}
-	_ resource.ResourceWithModifyPlan       = &ServerSettingsResource{}
-	_ resource.ResourceWithConfigValidators = &ServerSettingsResource{}
+	_ resource.Resource                = &ServerSettingsResource{}
+	_ resource.ResourceWithImportState = &ServerSettingsResource{}
 )
 
 func NewServerSettingsResource() resource.Resource {
@@ -88,48 +85,48 @@ func (r *ServerSettingsResource) Schema(_ context.Context, _ resource.SchemaRequ
 				},
 			},
 			"dnssec_validation": schema.BoolAttribute{
-				Description: "Enable DNSSEC validation. STIG BIND-9X-001650 (SC-21).",
+				Description: "Enable DNSSEC validation.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
 			},
 			"recursion": schema.StringAttribute{
-				Description: "Recursion policy. STIG BIND-9X-001380 (SC-5). Valid: Allow, Deny, AllowOnlyForPrivateNetworks, UseSpecifiedNetworkACL.",
+				Description: "Recursion policy. Valid: Allow, Deny, AllowOnlyForPrivateNetworks, UseSpecifiedNetworkACL.",
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString("AllowOnlyForPrivateNetworks"),
 			},
 			"recursion_network_acl": schema.ListAttribute{
-				Description: "Network ACL for recursion when using UseSpecifiedNetworkACL. STIG BIND-9X-001740 (SC-5).",
+				Description: "Network ACL for recursion when using UseSpecifiedNetworkACL.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
 			"qname_minimization": schema.BoolAttribute{
-				Description: "Enable QNAME minimization. STIG BIND-9X-002440 (CM-6).",
+				Description: "Enable QNAME minimization.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
 			},
 			"randomize_name": schema.BoolAttribute{
-				Description: "Randomize query name case (0x20 encoding). STIG BIND-9X-001490 (CM-6).",
+				Description: "Randomize query name case (0x20 encoding).",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
 			},
 			"log_queries": schema.BoolAttribute{
-				Description: "Enable query logging. STIG BIND-9X-001110 (AU-12).",
+				Description: "Enable query logging.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
 			},
 			"logging_type": schema.StringAttribute{
-				Description: "Logging output type. STIG BIND-9X-001900 (AU-4). Valid: None, File, Console, FileAndConsole.",
+				Description: "Logging output type. Valid: None, File, Console, FileAndConsole.",
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString("FileAndConsole"),
 			},
 			"max_log_file_days": schema.Int64Attribute{
-				Description: "Maximum days to retain log files. STIG BIND-9X-001890 (AU-4).",
+				Description: "Maximum days to retain log files.",
 				Optional:    true,
 				Computed:    true,
 				Default:     int64default.StaticInt64(365),
@@ -189,35 +186,35 @@ func (r *ServerSettingsResource) Schema(_ context.Context, _ resource.SchemaRequ
 				Default:     booldefault.StaticBool(true),
 			},
 			"forwarders": schema.ListAttribute{
-				Description: "List of forwarder addresses. STIG BIND-9X-001360 (SC-20).",
+				Description: "List of forwarder addresses.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
 			"forwarder_protocol": schema.StringAttribute{
-				Description: "Forwarder transport protocol. STIG SC-8. Valid: Udp, Tcp, Tls, Https, Quic.",
+				Description: "Forwarder transport protocol. Valid: Udp, Tcp, Tls, Https, Quic.",
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString("Tls"),
 			},
 			"enable_dns_over_tls": schema.BoolAttribute{
-				Description: "Enable DNS-over-TLS listener. STIG SC-8.",
+				Description: "Enable DNS-over-TLS listener.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
 			"enable_dns_over_https": schema.BoolAttribute{
-				Description: "Enable DNS-over-HTTPS listener. STIG SC-8.",
+				Description: "Enable DNS-over-HTTPS listener.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
 			"zone_transfer_allowed_networks": schema.ListAttribute{
-				Description: "Networks allowed to perform zone transfers. STIG BIND-9X-001010 (AC-10).",
+				Description: "Networks allowed to perform zone transfers.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
 			"notify_allowed_networks": schema.ListAttribute{
-				Description: "Networks allowed to send notify. STIG BIND-9X-001390 (SC-20).",
+				Description: "Networks allowed to send notify.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
@@ -264,30 +261,6 @@ func (r *ServerSettingsResource) Configure(_ context.Context, req resource.Confi
 	}
 	r.providerData = providerData
 	r.client = providerData.Client
-}
-
-func (r *ServerSettingsResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.Plan.Raw.IsNull() {
-		return // destroy plan
-	}
-	if r.providerData != nil && r.providerData.STIGEngine != nil {
-		r.providerData.STIGEngine.ValidatePlan(
-			ctx,
-			validators.ResourceServerSettings,
-			&validators.TFPlanAdapter{Plan: req.Plan},
-			&validators.TFStateAdapter{State: req.State},
-			&resp.Diagnostics,
-		)
-	}
-}
-
-func (r *ServerSettingsResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
-	if r.providerData == nil || r.providerData.STIGEngine == nil {
-		return nil
-	}
-	return []resource.ConfigValidator{
-		newSTIGConfigValidator(r.providerData.STIGEngine, validators.ResourceServerSettings),
-	}
 }
 
 func (r *ServerSettingsResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

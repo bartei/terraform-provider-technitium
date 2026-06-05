@@ -58,7 +58,7 @@ func (c *Client) RecordAdd(ctx context.Context, domain, zone, recordType string,
 		qp.Set(k, v)
 	}
 
-	resp, err := c.doGet(ctx, "/api/zones/records/add", qp)
+	resp, err := c.do(ctx, "/api/zones/records/add", qp)
 	if err != nil {
 		return nil, fmt.Errorf("adding %s record for %q in zone %q: %w", recordType, domain, zone, err)
 	}
@@ -78,7 +78,7 @@ func (c *Client) RecordGet(ctx context.Context, domain, zone string) ([]Record, 
 		"zone":   {zone},
 	}
 
-	resp, err := c.doGet(ctx, "/api/zones/records/get", qp)
+	resp, err := c.do(ctx, "/api/zones/records/get", qp)
 	if err != nil {
 		return nil, fmt.Errorf("getting records for %q in zone %q: %w", domain, zone, err)
 	}
@@ -110,7 +110,7 @@ func (c *Client) RecordUpdate(ctx context.Context, domain, zone, recordType stri
 		qp.Set(k, v)
 	}
 
-	_, err := c.doGet(ctx, "/api/zones/records/update", qp)
+	_, err := c.do(ctx, "/api/zones/records/update", qp)
 	if err != nil {
 		return fmt.Errorf("updating %s record for %q in zone %q: %w", recordType, domain, zone, err)
 	}
@@ -137,7 +137,7 @@ func (c *Client) RecordDelete(ctx context.Context, domain, zone, recordType stri
 		qp.Set(k, v)
 	}
 
-	_, err := c.doGet(ctx, "/api/zones/records/delete", qp)
+	_, err := c.do(ctx, "/api/zones/records/delete", qp)
 	if err != nil {
 		return fmt.Errorf("deleting %s record for %q in zone %q: %w", recordType, domain, zone, err)
 	}

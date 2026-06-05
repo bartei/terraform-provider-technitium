@@ -21,8 +21,7 @@
 //	server.crt  PEM-encoded server certificate. For debugging only.
 //	server.key  PEM-encoded server private key. For debugging only.
 //
-// All keys are ECDSA P-384 to satisfy the provider's NSS-mode FIPS
-// expectations. Certificate validity is short (default 24h) because the
+// All keys are ECDSA P-384. Certificate validity is short (default 24h) because the
 // material is regenerated on every test run; nothing here should ever
 // reach a non-test environment.
 //

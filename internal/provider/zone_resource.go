@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/bartei/terraform-provider-technitium/internal/client"
-	"github.com/bartei/terraform-provider-technitium/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -24,10 +23,9 @@ import (
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var (
-	_ resource.Resource                     = &ZoneResource{}
-	_ resource.ResourceWithImportState      = &ZoneResource{}
-	_ resource.ResourceWithModifyPlan       = &ZoneResource{}
-	_ resource.ResourceWithConfigValidators = &ZoneResource{}
+	_ resource.Resource                = &ZoneResource{}
+	_ resource.ResourceWithImportState = &ZoneResource{}
+	_ resource.ResourceWithModifyPlan  = &ZoneResource{}
 )
 
 func NewZoneResource() resource.Resource {
@@ -101,26 +99,24 @@ func (r *ZoneResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Default:     booldefault.StaticBool(true),
 			},
 			"notify": schema.ListAttribute{
-				Description: "List of IP addresses to notify on zone changes. Maps to STIG BIND-9X-001390 (SC-20).",
+				Description: "List of IP addresses to notify on zone changes.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
 			"allow_transfer": schema.ListAttribute{
-				Description: "List of IP addresses allowed to perform zone transfers. Maps to STIG BIND-9X-001010 (AC-10).",
+				Description: "List of IP addresses allowed to perform zone transfers.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
 			"zone_transfer_tsig_key_names": schema.ListAttribute{
 				Description: "List of TSIG key names authorized to perform zone transfers. " +
-					"Valid for Primary, Secondary, Forwarder, and Catalog zones. " +
-					"Maps to STIG BIND-9X-001010 (AC-10).",
+					"Valid for Primary, Secondary, Forwarder, and Catalog zones.",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
 			"primary_zone_transfer_tsig_key_name": schema.StringAttribute{
 				Description: "TSIG key name for authenticating zone transfers from the primary server. " +
-					"Valid only for Secondary, SecondaryForwarder, and SecondaryCatalog zones. " +
-					"Maps to STIG BIND-9X-001010 (AC-10).",
+					"Valid only for Secondary, SecondaryForwarder, and SecondaryCatalog zones.",
 				Optional: true,
 			},
 			// Computed attributes
@@ -139,7 +135,7 @@ func (r *ZoneResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 		},
 		Blocks: map[string]schema.Block{
 			"dnssec": schema.SingleNestedBlock{
-				Description: "DNSSEC configuration. Maps to STIG BIND-9X-001650 (SC-20/21/22/23/8/24).",
+				Description: "DNSSEC configuration.",
 				Attributes: map[string]schema.Attribute{
 					"enabled": schema.BoolAttribute{
 						Description: "Enable DNSSEC signing for the zone.",
@@ -148,7 +144,7 @@ func (r *ZoneResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 						Default:     booldefault.StaticBool(true),
 					},
 					"algorithm": schema.StringAttribute{
-						Description: "DNSSEC signing algorithm. Valid values: ECDSA, EDDSA, RSA. Maps to STIG BIND-9X-002050 (SC-13).",
+						Description: "DNSSEC signing algorithm. Valid values: ECDSA, EDDSA, RSA.",
 						Optional:    true,
 						Computed:    true,
 						Default:     stringdefault.StaticString("ECDSA"),
@@ -160,7 +156,7 @@ func (r *ZoneResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 						Default:     stringdefault.StaticString("P256"),
 					},
 					"nx_proof": schema.StringAttribute{
-						Description: "NSEC/NSEC3 proof of non-existence. Maps to STIG BIND-9X-001270 (SC-20).",
+						Description: "NSEC/NSEC3 proof of non-existence.",
 						Optional:    true,
 						Computed:    true,
 						Default:     stringdefault.StaticString("NSEC3"),
@@ -199,19 +195,6 @@ func (r *ZoneResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 		return
 	}
 
-	// NSS validation: when running in NSS mode with ECDSA, P256 is not allowed.
-	// CNSSI 1253 requires P384 for higher security margin in classified environments.
-	if r.providerData != nil && r.providerData.NSS &&
-		plan.DNSSEC != nil && plan.DNSSEC.Enabled.ValueBool() &&
-		plan.DNSSEC.Algorithm.ValueString() == "ECDSA" &&
-		plan.DNSSEC.Curve.ValueString() == "P256" {
-
-		resp.Diagnostics.AddError("DNSSEC curve P256 not allowed in NSS mode",
-			"National Security Systems require ECDSA P384 (not P256) for DNSSEC signing. "+
-				"CNSSI 1253 mandates higher security margins for classified environments. "+
-				"Set dnssec { curve = \"P384\" } to comply.")
-	}
-
 	// Zone type validation for zone_transfer_tsig_key_names
 	if !plan.ZoneTransferTsigKeyNames.IsNull() && !plan.ZoneTransferTsigKeyNames.IsUnknown() {
 		zoneType := plan.Type.ValueString()
@@ -239,25 +222,6 @@ func (r *ZoneResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 		}
 	}
 
-	// STIG compliance validation
-	if r.providerData != nil && r.providerData.STIGEngine != nil {
-		r.providerData.STIGEngine.ValidatePlan(
-			ctx,
-			validators.ResourceZone,
-			&validators.TFPlanAdapter{Plan: req.Plan},
-			&validators.TFStateAdapter{State: req.State},
-			&resp.Diagnostics,
-		)
-	}
-}
-
-func (r *ZoneResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
-	if r.providerData == nil || r.providerData.STIGEngine == nil {
-		return nil
-	}
-	return []resource.ConfigValidator{
-		newSTIGConfigValidator(r.providerData.STIGEngine, validators.ResourceZone),
-	}
 }
 
 func (r *ZoneResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -572,8 +536,7 @@ func (r *ZoneResource) readZoneState(ctx context.Context, model *ZoneResourceMod
 // validateTsigKeyReference checks that a TSIG key exists and, in NSS mode,
 // that its algorithm meets FIPS 140-3 / CNSSI 1253 requirements.
 func (r *ZoneResource) validateTsigKeyReference(ctx context.Context, keyName string, diagnostics *diag.Diagnostics) {
-	key, err := r.client.TSIGKeyGet(ctx, keyName)
-	if err != nil {
+	if _, err := r.client.TSIGKeyGet(ctx, keyName); err != nil {
 		if errors.Is(err, client.ErrTSIGKeyNotFound) {
 			diagnostics.AddError(
 				"TSIG key not found",
@@ -582,16 +545,6 @@ func (r *ZoneResource) validateTsigKeyReference(ctx context.Context, keyName str
 			diagnostics.AddError(
 				"Error validating TSIG key",
 				fmt.Sprintf("Failed to look up TSIG key %q: %s", keyName, err.Error()))
-		}
-		return
-	}
-
-	if r.providerData != nil && r.providerData.NSS {
-		if !isNSSCompliantTSIGAlgorithm(key.AlgorithmName) {
-			diagnostics.AddError(
-				"TSIG key does not meet NSS requirements",
-				fmt.Sprintf("TSIG key %q uses algorithm %q which does not meet FIPS 140-3/CNSSI 1253 requirements. "+
-					"Use hmac-sha256, hmac-sha384, or hmac-sha512.", keyName, key.AlgorithmName))
 		}
 	}
 }

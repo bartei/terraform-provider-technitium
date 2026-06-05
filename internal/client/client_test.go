@@ -75,10 +75,21 @@ func TestNewClient_SkipTLSVerify(t *testing.T) {
 	}
 }
 
-func TestDoGet_Success(t *testing.T) {
+func TestDo_Success_TokenInBodyNotURL(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("token") != "test-token" {
-			t.Error("token not passed in query params")
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		// The token must travel in the form body, never in the URL, so it
+		// cannot leak into proxy or server access logs.
+		if r.URL.Query().Get("token") != "" {
+			t.Error("token must not appear in the URL query string")
+		}
+		if strings.Contains(r.URL.RawQuery, "test-token") {
+			t.Error("token value leaked into the request URL")
+		}
+		if r.FormValue("token") != "test-token" {
+			t.Error("token not passed in form body")
 		}
 		if err := json.NewEncoder(w).Encode(APIResponse{
 			Status:   "ok",
@@ -90,7 +101,7 @@ func TestDoGet_Success(t *testing.T) {
 	defer ts.Close()
 
 	c, _ := NewClient(ClientConfig{BaseURL: ts.URL, Token: "test-token"})
-	resp, err := c.doGet(context.Background(), "/api/zones/list", nil)
+	resp, err := c.do(context.Background(), "/api/zones/list", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,7 +110,7 @@ func TestDoGet_Success(t *testing.T) {
 	}
 }
 
-func TestDoGet_APIError(t *testing.T) {
+func TestDo_APIError(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewEncoder(w).Encode(APIResponse{
 			Status:       "error",
@@ -111,7 +122,7 @@ func TestDoGet_APIError(t *testing.T) {
 	defer ts.Close()
 
 	c, _ := NewClient(ClientConfig{BaseURL: ts.URL, Token: "test-token"})
-	_, err := c.doGet(context.Background(), "/api/zones/options/get", nil)
+	_, err := c.do(context.Background(), "/api/zones/options/get", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -124,7 +135,7 @@ func TestDoGet_APIError(t *testing.T) {
 	}
 }
 
-func TestDoGet_InvalidToken(t *testing.T) {
+func TestDo_InvalidToken(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewEncoder(w).Encode(APIResponse{
 			Status:       "invalid-token",
@@ -136,7 +147,7 @@ func TestDoGet_InvalidToken(t *testing.T) {
 	defer ts.Close()
 
 	c, _ := NewClient(ClientConfig{BaseURL: ts.URL, Token: "bad-token"})
-	_, err := c.doGet(context.Background(), "/api/zones/list", nil)
+	_, err := c.do(context.Background(), "/api/zones/list", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -149,7 +160,7 @@ func TestDoGet_InvalidToken(t *testing.T) {
 	}
 }
 
-func TestDoGet_HTTPError(t *testing.T) {
+func TestDo_HTTPError(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		if _, err := w.Write([]byte("internal server error")); err != nil {
@@ -159,13 +170,13 @@ func TestDoGet_HTTPError(t *testing.T) {
 	defer ts.Close()
 
 	c, _ := NewClient(ClientConfig{BaseURL: ts.URL, Token: "test-token"})
-	_, err := c.doGet(context.Background(), "/api/zones/list", nil)
+	_, err := c.do(context.Background(), "/api/zones/list", nil)
 	if err == nil {
 		t.Fatal("expected error for HTTP 500")
 	}
 }
 
-func TestDoGet_InvalidJSON(t *testing.T) {
+func TestDo_InvalidJSON(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if _, err := w.Write([]byte("not json")); err != nil {
 			t.Fatalf("failed to write response: %v", err)
@@ -174,13 +185,13 @@ func TestDoGet_InvalidJSON(t *testing.T) {
 	defer ts.Close()
 
 	c, _ := NewClient(ClientConfig{BaseURL: ts.URL, Token: "test-token"})
-	_, err := c.doGet(context.Background(), "/api/zones/list", nil)
+	_, err := c.do(context.Background(), "/api/zones/list", nil)
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
 	}
 }
 
-func TestDoPost_Success(t *testing.T) {
+func TestDo_ParamsInBody(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
@@ -199,7 +210,7 @@ func TestDoPost_Success(t *testing.T) {
 
 	c, _ := NewClient(ClientConfig{BaseURL: ts.URL, Token: "test-token"})
 	params := url.Values{"setting": {"value1"}}
-	resp, err := c.doPost(context.Background(), "/api/settings/set", params)
+	resp, err := c.do(context.Background(), "/api/settings/set", params)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -208,7 +219,7 @@ func TestDoPost_Success(t *testing.T) {
 	}
 }
 
-func TestDoPost_APIError(t *testing.T) {
+func TestDo_PostAPIError(t *testing.T) {
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewEncoder(w).Encode(APIResponse{
 			Status:       "error",
@@ -220,7 +231,7 @@ func TestDoPost_APIError(t *testing.T) {
 	defer ts.Close()
 
 	c, _ := NewClient(ClientConfig{BaseURL: ts.URL, Token: "test-token"})
-	_, err := c.doPost(context.Background(), "/api/settings/set", nil)
+	_, err := c.do(context.Background(), "/api/settings/set", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}

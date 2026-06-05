@@ -5,7 +5,6 @@ package provider
 
 import (
 	"fmt"
-	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -212,123 +211,6 @@ func TestAccTSIGKeyResource_algorithms(t *testing.T) {
 		})
 	}
 }
-
-// --- NSS acceptance tests ---
-
-func testAccTSIGKeyResourceNSS(name, algo string) string {
-	return testAccProviderHCL_NSS("high", "high", "moderate") + fmt.Sprintf(`
-resource "technitium_tsig_key" "nss" {
-  key_name  = %q
-  algorithm = %q
-}
-`, name, algo)
-}
-
-func TestAccTSIGKeyResource_NSS_allowed_sha256(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccTSIGKeyResourceNSS("acc-nss-sha256.example.com", "hmac-sha256"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("technitium_tsig_key.nss", "key_name", "acc-nss-sha256.example.com"),
-					resource.TestCheckResourceAttr("technitium_tsig_key.nss", "algorithm", "hmac-sha256"),
-				),
-			},
-		},
-	})
-}
-
-func TestAccTSIGKeyResource_NSS_allowed_sha384(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccTSIGKeyResourceNSS("acc-nss-sha384.example.com", "hmac-sha384"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("technitium_tsig_key.nss", "key_name", "acc-nss-sha384.example.com"),
-					resource.TestCheckResourceAttr("technitium_tsig_key.nss", "algorithm", "hmac-sha384"),
-				),
-			},
-		},
-	})
-}
-
-func TestAccTSIGKeyResource_NSS_allowed_sha512(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccTSIGKeyResourceNSS("acc-nss-sha512.example.com", "hmac-sha512"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("technitium_tsig_key.nss", "key_name", "acc-nss-sha512.example.com"),
-					resource.TestCheckResourceAttr("technitium_tsig_key.nss", "algorithm", "hmac-sha512"),
-				),
-			},
-		},
-	})
-}
-
-func TestAccTSIGKeyResource_NSS_blocked_md5(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccTSIGKeyResourceNSS("acc-nss-md5.example.com", "hmac-md5.sig-alg.reg.int"),
-				ExpectError: regexp.MustCompile(`(not allowed in NSS mode|DNS-REQ-002.*crypto auth)`),
-			},
-		},
-	})
-}
-
-func TestAccTSIGKeyResource_NSS_blocked_sha1(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccTSIGKeyResourceNSS("acc-nss-sha1.example.com", "hmac-sha1"),
-				ExpectError: regexp.MustCompile(`(not allowed in NSS mode|DNS-REQ-002.*crypto auth)`),
-			},
-		},
-	})
-}
-
-func TestAccTSIGKeyResource_NSS_blocked_sha256_128(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccTSIGKeyResourceNSS("acc-nss-sha256-128.example.com", "hmac-sha256-128"),
-				ExpectError: regexp.MustCompile(`(not allowed in NSS mode|DNS-REQ-002.*crypto auth)`),
-			},
-		},
-	})
-}
-
-func TestAccTSIGKeyResource_NSS_blocked_sha384_192(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccTSIGKeyResourceNSS("acc-nss-sha384-192.example.com", "hmac-sha384-192"),
-				ExpectError: regexp.MustCompile(`(not allowed in NSS mode|DNS-REQ-002.*crypto auth)`),
-			},
-		},
-	})
-}
-
-func TestAccTSIGKeyResource_NSS_blocked_sha512_256(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccTSIGKeyResourceNSS("acc-nss-sha512-256.example.com", "hmac-sha512-256"),
-				ExpectError: regexp.MustCompile(`(not allowed in NSS mode|DNS-REQ-002.*crypto auth)`),
-			},
-		},
-	})
-}
-
 func TestAccTSIGKeyDataSource_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

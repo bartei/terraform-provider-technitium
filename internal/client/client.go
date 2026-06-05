@@ -170,30 +170,12 @@ func loadCACerts(certFile, certDir string) (*x509.CertPool, error) {
 	return pool, nil
 }
 
-// doGet performs a GET request to the Technitium API and returns the parsed response.
-// Most Technitium API endpoints use GET with query parameters, including mutations.
-func (c *Client) doGet(ctx context.Context, path string, params url.Values) (*APIResponse, error) {
-	if params == nil {
-		params = url.Values{}
-	}
-	params.Set("token", c.token)
-
-	reqURL := fmt.Sprintf("%s%s?%s", c.baseURL, path, params.Encode())
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating request to %s: %w", path, err)
-	}
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request to %s failed: %w", path, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	return c.parseResponse(resp)
-}
-
-// doPost performs a POST request with form-encoded body (used by /api/settings/set).
-func (c *Client) doPost(ctx context.Context, path string, params url.Values) (*APIResponse, error) {
+// do performs a POST request with all parameters (including the API token)
+// form-encoded in the request body. Technitium handlers read parameters from
+// the query string or the form body interchangeably; using the body keeps the
+// token out of request URLs, where it would otherwise leak into proxy and
+// server access logs.
+func (c *Client) do(ctx context.Context, path string, params url.Values) (*APIResponse, error) {
 	if params == nil {
 		params = url.Values{}
 	}
@@ -246,10 +228,10 @@ func (c *Client) parseResponse(resp *http.Response) (*APIResponse, error) {
 // validates the token without side effects. Falls back to /api/settings/get
 // if the session endpoint is unavailable.
 func (c *Client) Ping(ctx context.Context) error {
-	_, err := c.doGet(ctx, "/api/user/session/get", nil)
+	_, err := c.do(ctx, "/api/user/session/get", nil)
 	if err != nil {
 		// Fallback: try settings endpoint (always exists, requires valid token)
-		_, err = c.doGet(ctx, "/api/settings/get", nil)
+		_, err = c.do(ctx, "/api/settings/get", nil)
 	}
 	return err
 }
