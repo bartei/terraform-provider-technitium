@@ -47,6 +47,7 @@ Provider-level config (`stig_compliance` block: `enabled`, `enforcement` = warn/
 ## Conventions
 
 - Conventional Commits (`feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `security`), scope encouraged.
+- NEVER add `Co-Authored-By`, "Generated with", or any AI-attribution lines to commits, tags, or PRs.
 - Every file starts with the MPL-2.0 SPDX header.
 - `docs/` is generated — never hand-edit; change `templates/` + schema and run `make generate`.
 - Changes touching DNS config that validators evaluate should consider whether a DNS-REQ validator needs adding/extending; new validators need tests in `internal/provider/validators/`.
