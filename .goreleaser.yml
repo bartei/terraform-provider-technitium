@@ -1,9 +1,11 @@
-# Visit https://goreleaser.com for documentation on how to customize this
-# behavior.
 version: 2
+
 before:
   hooks:
     - go mod tidy
+    - go vet ./...
+    - go test ./...
+
 builds:
   - env:
       - CGO_ENABLED=0
@@ -20,12 +22,18 @@ builds:
       - amd64
       - arm64
     binary: "{{ .ProjectName }}_v{{ .Version }}"
+
 archives:
-  - format: zip
+  - formats: ['zip']
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
 checksum:
+  extra_files:
+    - glob: "terraform-registry-manifest.json"
+      name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
   name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
   algorithm: sha256
+
 signs:
   - artifacts: checksum
     args:
@@ -36,12 +44,27 @@ signs:
       - "${signature}"
       - "--detach-sign"
       - "${artifact}"
+
 release:
+  extra_files:
+    - glob: "terraform-registry-manifest.json"
+      name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
   draft: false
+
 changelog:
   sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Other
+      order: 999
   filters:
     exclude:
       - "^docs:"
       - "^test:"
       - "^ci:"
+      - "^chore:"

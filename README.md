@@ -193,7 +193,7 @@ make install
 ## Documentation
 
 - [Terraform Registry Documentation](https://registry.terraform.io/providers/bartei/technitium/latest/docs)
-- [Changelog](CHANGELOG.md)
+- [Release notes](https://github.com/bartei/terraform-provider-technitium/releases)
 
 ## Development
 

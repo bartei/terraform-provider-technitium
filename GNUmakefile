@@ -150,4 +150,15 @@ lint:
 install:
 	go build -o ~/.terraform.d/plugins/registry.terraform.io/bartei/technitium/0.0.1/$$(go env GOOS)_$$(go env GOARCH)/terraform-provider-technitium
 
-.PHONY: build build-fips test test-fips testacc testacc-token testacc-up testacc-down testacc-tls-prep testacc-token-tls testacc-tls testacc-up-tls testacc-down-tls generate docs lint install _testdata-preflight
+# For local development: use with dev_overrides in ~/.terraformrc
+dev: build
+	@echo "Binary built. Add this to ~/.terraformrc:"
+	@echo ""
+	@echo 'provider_installation {'
+	@echo '  dev_overrides {'
+	@echo '    "bartei/technitium" = "$(CURDIR)"'
+	@echo '  }'
+	@echo '  direct {}'
+	@echo '}'
+
+.PHONY: build build-fips dev test test-fips testacc testacc-token testacc-up testacc-down testacc-tls-prep testacc-token-tls testacc-tls testacc-up-tls testacc-down-tls generate docs lint install _testdata-preflight
